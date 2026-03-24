@@ -237,11 +237,11 @@
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">Taxa de conversão por vendedor (top 10)</div>
+        <div class="card-title">Taxa de conversão por vendedor — vendas realizadas (top 10)</div>
         <div class="chart-wrap" style="height:280px;"><canvas id="convChart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title">Volume de atendimentos por dia</div>
+        <div class="card-title">Atendimentos por dia (1ª resposta da atendente)</div>
         <div class="chart-wrap" style="height:280px;"><canvas id="volChart"></canvas></div>
       </div>
     </div>
@@ -262,8 +262,14 @@ const COLS = {
   MOTIVO: 19,
   CARD: 14,
   DATA_ATRIBUIDO: 13,
+  PRIMEIRA_RESPOSTA: 16,
   VALOR: 18,
 };
+
+// Conversão = Venda Realizada
+function isVenda(r) {
+  return (r[COLS.MOTIVO]||'').toLowerCase().includes('venda realizada');
+}
 
 let rawData = [];
 let charts = {};
@@ -346,13 +352,13 @@ function renderAll() {
 
 function renderMetrics(data) {
   const total = data.length;
-  const agendados = data.filter(r => (r[COLS.MOTIVO]||'').includes('Agendamento Realizado')).length;
+  const vendas = data.filter(r => isVenda(r)).length;
   const perdidos = data.filter(r =>
     (r[COLS.MOTIVO]||'').includes('Falta de Comunicação') ||
     (r[COLS.MOTIVO]||'').includes('Negociação Abandonada')).length;
   const comValor = data.filter(r => r[COLS.VALOR] && parseFloat(r[COLS.VALOR]) > 0);
   const totalValor = comValor.reduce((s,r) => s + parseFloat(r[COLS.VALOR]), 0);
-  const conv = total > 0 ? (agendados/total*100).toFixed(1) : 0;
+  const conv = total > 0 ? (vendas/total*100).toFixed(1) : 0;
   const vendAtivos = new Set(data.map(r => r[COLS.ATENDENTE]).filter(Boolean)).size;
 
   const badgeConv = conv >= 20 ? 'badge-green' : conv >= 10 ? 'badge-amber' : 'badge-red';
@@ -364,8 +370,8 @@ function renderMetrics(data) {
       <div class="metric-sub">${vendAtivos} vendedor${vendAtivos!==1?'es':''} ativo${vendAtivos!==1?'s':''}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Agendamentos</div>
-      <div class="metric-value">${agendados.toLocaleString('pt-BR')}</div>
+      <div class="metric-label">Vendas realizadas</div>
+      <div class="metric-value">${vendas.toLocaleString('pt-BR')}</div>
       <span class="metric-badge ${badgeConv}">Conv. ${conv}%</span>
     </div>
     <div class="metric">
@@ -385,15 +391,15 @@ function renderRanking(data) {
   const map = {};
   data.forEach(r => {
     const v = r[COLS.ATENDENTE]; if (!v) return;
-    if (!map[v]) map[v] = { total:0, agend:0 };
+    if (!map[v]) map[v] = { total:0, vendas:0 };
     map[v].total++;
-    if ((r[COLS.MOTIVO]||'').includes('Agendamento Realizado')) map[v].agend++;
+    if (isVenda(r)) map[v].vendas++;
   });
   const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total).slice(0, 15);
   const max = sorted[0]?.[1]?.total || 1;
 
   const rows = sorted.map(([v, s], i) => {
-    const conv = s.total > 0 ? (s.agend/s.total*100).toFixed(0) : 0;
+    const conv = s.total > 0 ? (s.vendas/s.total*100).toFixed(0) : 0;
     const badge = conv >= 20 ? 'badge-green' : conv >= 10 ? 'badge-amber' : 'badge-red';
     const rankClass = i === 0 ? 'rank rank-1' : i === 1 ? 'rank rank-2' : i === 2 ? 'rank rank-3' : 'rank';
     return `<tr>
@@ -406,13 +412,13 @@ function renderRanking(data) {
         </div>
       </td>
       <td><span class="metric-badge ${badge}" style="font-size:11px;">${conv}%</span></td>
-      <td style="font-size:12px;color:var(--muted);">${s.agend} agend.</td>
+      <td style="font-size:12px;color:var(--muted);">${s.vendas} vendas</td>
     </tr>`;
   }).join('');
 
   document.getElementById('rankingTable').innerHTML = `
     <thead><tr>
-      <th>#</th><th>Vendedor</th><th>Atendimentos</th><th>Conv.</th><th>Agend.</th>
+      <th>#</th><th>Vendedor</th><th>Atendimentos</th><th>Conv.</th><th>Vendas</th>
     </tr></thead>
     <tbody>${rows}</tbody>`;
 }
@@ -445,13 +451,13 @@ function renderConversao(data) {
   const map = {};
   data.forEach(r => {
     const v = r[COLS.ATENDENTE]; if (!v) return;
-    if (!map[v]) map[v] = { total:0, agend:0 };
+    if (!map[v]) map[v] = { total:0, vendas:0 };
     map[v].total++;
-    if ((r[COLS.MOTIVO]||'').includes('Agendamento Realizado')) map[v].agend++;
+    if (isVenda(r)) map[v].vendas++;
   });
   const sorted = Object.entries(map)
     .filter(([,s]) => s.total >= 5)
-    .map(([v,s]) => ({ v, conv: s.total>0 ? parseFloat((s.agend/s.total*100).toFixed(1)) : 0 }))
+    .map(([v,s]) => ({ v, conv: s.total>0 ? parseFloat((s.vendas/s.total*100).toFixed(1)) : 0 }))
     .sort((a,b) => b.conv-a.conv).slice(0,10);
 
   const labels = sorted.map(s => s.v.split(' ')[0]);
@@ -476,7 +482,8 @@ function renderConversao(data) {
 function renderVolume(data) {
   const map = {};
   data.forEach(r => {
-    const d = parseData(r[COLS.DATA_ATRIBUIDO]);
+    // Usa Primeira Resposta da Atendente (col Q = índice 16)
+    const d = parseData(r[COLS.PRIMEIRA_RESPOSTA]);
     if (!d) return;
     const key = d.toLocaleDateString('pt-BR');
     map[key] = (map[key]||0) + 1;
