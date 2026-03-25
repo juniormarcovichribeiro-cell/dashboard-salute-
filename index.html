@@ -380,18 +380,10 @@ async function carregarTudo(){
 
 async function carregarClubVida(){
   try{
-    // Busca a aba ClubVida_Vendas pelo nome via export — precisa do GID numérico
-    // Como não temos o GID fixo, buscamos pelo feed de abas
-    const metaUrl=`https://docs.google.com/spreadsheets/d/${CRM_ID}/feeds/worksheets/default/public/basic?alt=json`;
-    const mr=await fetch(metaUrl);
-    if(!mr.ok) return;
-    const mj=await mr.json();
-    const aba=(mj.feed.entry||[]).find(e=>e.title.$t===CV_GID_NOME);
-    if(!aba){Logger.log&&Logger.log('Aba ClubVida_Vendas não encontrada');return;}
-    const gid=aba.id.$t.match(/\/([^/]+)$/)?.[1];
-    if(!gid) return;
-    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${gid}`);
-    if(!res.ok) return;
+    // GID fixo da aba ClubVida_Vendas
+    const CV_GID='426211509';
+    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
+    if(!res.ok){console.warn('Clube Vida HTTP '+res.status);return;}
     const rows=parsearCSV(await res.text());
     cvData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
     console.log('Clube Vida: '+cvData.length+' registros carregados');
