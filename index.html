@@ -3,586 +3,573 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Comercial — Setor Vendas</title>
+<title>Dashboard Comercial — Salute</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #f4f5f7;
-    --surface: #ffffff;
-    --border: #e2e4e9;
-    --text: #1a1d23;
-    --muted: #6b7280;
-    --hint: #9ca3af;
-    --green: #1D9E75;
-    --green-bg: #e1f5ee;
-    --amber: #BA7517;
-    --amber-bg: #faeeda;
-    --red: #E24B4A;
-    --red-bg: #fcebeb;
-    --blue: #185FA5;
-    --blue-bg: #e6f1fb;
-    --purple: #534AB7;
-    --radius: 12px;
-    --radius-sm: 8px;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-
-  /* HEADER */
-  .header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .header-left { display: flex; align-items: center; gap: 12px; }
-  .logo { width: 32px; height: 32px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 700; }
-  .header-title { font-size: 16px; font-weight: 600; }
-  .header-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
-  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
-  /* STATUS */
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hint); display: inline-block; margin-right: 4px; }
-  .status-dot.ok { background: var(--green); }
-  .status-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
-  .status-dot.error { background: var(--red); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .status-text { font-size: 12px; color: var(--muted); }
-
-  /* CONTROLS */
-  select, button {
-    font-size: 13px;
-    padding: 7px 12px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    cursor: pointer;
-    outline: none;
-  }
-  select:focus, button:focus { border-color: var(--blue); }
-  .btn-refresh {
-    background: var(--blue);
-    color: #fff;
-    border-color: var(--blue);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 500;
-  }
-  .btn-refresh:hover { opacity: 0.9; }
-  .btn-refresh svg { width: 14px; height: 14px; }
-
-  /* MAIN */
-  .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
-
-  /* METRICS */
-  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .metric {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-  }
-  .metric-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
-  .metric-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
-  .metric-sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
-  .metric-badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 10px; margin-top: 6px; }
-  .badge-green { background: var(--green-bg); color: var(--green); }
-  .badge-amber { background: var(--amber-bg); color: var(--amber); }
-  .badge-red { background: var(--red-bg); color: var(--red); }
-
-  /* GRID */
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
-
-  /* CARDS */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
-    overflow: hidden;
-  }
-  .card-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 14px;
-  }
-  .chart-wrap { position: relative; width: 100%; }
-
-  /* TABLE */
-  .table-scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  td { padding: 10px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #f9fafb; }
-
-  .bar-wrap { display: flex; align-items: center; gap: 8px; }
-  .bar-bg { flex: 1; height: 5px; background: #f0f1f3; border-radius: 3px; overflow: hidden; min-width: 60px; }
-  .bar-fill { height: 100%; border-radius: 3px; background: var(--blue); }
-
-  /* RANK # */
-  .rank { font-size: 12px; color: var(--hint); font-weight: 600; width: 20px; }
-  .rank-1 { color: #BA7517; }
-  .rank-2 { color: #6b7280; }
-  .rank-3 { color: #9C6B3C; }
-
-  /* LOADING */
-  .loading-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    gap: 16px;
-  }
-  .spinner {
-    width: 36px; height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--blue);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 14px; color: var(--muted); }
-
-  /* ERROR */
-  .error-box {
-    background: var(--red-bg);
-    border: 1px solid #f09595;
-    border-radius: var(--radius);
-    padding: 20px;
-    text-align: center;
-    color: var(--red);
-    font-size: 14px;
-    margin: 40px auto;
-    max-width: 500px;
-  }
-
-  /* LAST UPDATE */
-  .last-update { font-size: 11px; color: var(--hint); text-align: right; margin-bottom: 10px; }
-
-  /* MOTIVO LISTA */
-  .motivo-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-  .motivo-row:last-child { border-bottom: none; }
-  .motivo-label { flex: 1; font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .motivo-count { font-size: 12px; font-weight: 600; color: var(--text); min-width: 40px; text-align: right; }
-  .motivo-pct { font-size: 11px; color: var(--muted); min-width: 36px; text-align: right; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f5f7;--surface:#fff;--border:#e2e4e9;--text:#1a1d23;--muted:#6b7280;--hint:#9ca3af;--green:#1D9E75;--green-bg:#e1f5ee;--amber:#BA7517;--amber-bg:#faeeda;--red:#E24B4A;--red-bg:#fcebeb;--blue:#185FA5;--blue-bg:#e6f1fb;--r:12px;--rs:8px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:100}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.logo{width:32px;height:32px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700}
+.hdr-title{font-size:15px;font-weight:600}.hdr-sub{font-size:11px;color:var(--muted)}
+.hdr-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sdot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;background:var(--hint)}
+.sdot.ok{background:var(--green)}.sdot.loading{background:var(--amber);animation:pulse 1s infinite}.sdot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.stxt{font-size:12px;color:var(--muted)}
+.tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex}
+.tab{padding:12px 20px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}.tab:hover:not(.active){color:var(--text)}
+select,button{font-size:13px;padding:6px 11px;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;outline:none}
+select:focus,button:focus{border-color:var(--blue)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue);display:flex;align-items:center;gap:5px;font-weight:500}
+.btn-primary:hover{opacity:.9}.btn-primary svg{width:13px;height:13px}
+.main{padding:18px 24px;max-width:1400px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+.fbar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px}
+.fbar-group{display:flex;flex-direction:column;gap:4px}
+.fbar-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.etiq-wrap{position:relative}
+.etiq-btn{font-size:13px;padding:6px 11px;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;white-space:nowrap;min-width:180px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.etiq-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.1);min-width:280px;max-height:300px;overflow-y:auto;z-index:200}
+.etiq-dropdown.open{display:block}
+.etiq-search{padding:8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+.etiq-search input{width:100%;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--rs);outline:none}
+.etiq-item{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px}
+.etiq-item:hover{background:var(--bg)}.etiq-item input{cursor:pointer;accent-color:var(--blue)}
+.etiq-footer{padding:7px 12px;font-size:12px;color:var(--blue);cursor:pointer;border-top:1px solid var(--border);background:var(--surface);position:sticky;bottom:0}
+.etiq-footer:hover{background:var(--bg)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.metric-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.metric-value{font-size:24px;font-weight:700;line-height:1}
+.metric-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.mbadge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:10px;margin-top:5px}
+.bg-green{background:var(--green-bg);color:var(--green)}.bg-amber{background:var(--amber-bg);color:var(--amber)}.bg-red{background:var(--red-bg);color:var(--red)}.bg-blue{background:var(--blue-bg);color:var(--blue)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:860px){.g2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;overflow:hidden;margin-bottom:14px}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+.chart-wrap{position:relative;width:100%}
+.tscroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
+.rank{font-size:12px;color:var(--hint);font-weight:600}.rank-1{color:#BA7517}.rank-2{color:#6b7280}.rank-3{color:#9C6B3C}
+.bar-wrap{display:flex;align-items:center;gap:7px}
+.bar-bg{flex:1;height:5px;background:#f0f1f3;border-radius:3px;overflow:hidden;min-width:50px}
+.bar-fill{height:100%;border-radius:3px}
+.mrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.mrow:last-child{border-bottom:none}.mlabel{flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcount{font-size:12px;font-weight:600;min-width:40px;text-align:right}.mpct{font-size:11px;color:var(--muted);min-width:34px;text-align:right}
+.acomp-t{width:100%;border-collapse:collapse;font-size:13px}
+.acomp-t th{font-size:11px;font-weight:600;color:var(--muted);padding:7px 10px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap}
+.acomp-t td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:center}
+.acomp-t td:first-child{text-align:left;font-weight:500}
+.acomp-t .total-row td{font-weight:700;background:#f9fafb;border-top:2px solid var(--border)}
+.gap-pos{color:var(--green);font-weight:600}.gap-neg{color:var(--red);font-weight:600}.gap-zero{color:var(--muted)}
+.manual-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.manual-title{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)}
+.manual-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.manual-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.manual-field label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+.manual-inputs{display:flex;gap:6px}
+.manual-inputs input{flex:1;font-size:13px;padding:6px 9px;border:1px solid var(--border);border-radius:var(--rs);outline:none;background:var(--surface);color:var(--text);min-width:0}
+.manual-inputs input:focus{border-color:var(--blue)}
+.manual-inputs .ph{font-size:10px;color:var(--muted);text-align:center;margin-top:2px}
+.btn-save{background:var(--green);color:#fff;border-color:var(--green);padding:8px 20px;font-weight:500;margin-top:12px}
+.btn-save:hover{opacity:.9}
+.saved-tag{font-size:12px;color:var(--green);margin-left:10px;opacity:0;transition:opacity .3s}.saved-tag.show{opacity:1}
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;gap:14px}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:var(--muted)}
+.error-box{background:var(--red-bg);border:1px solid #f09595;border-radius:var(--r);padding:20px;text-align:center;color:var(--red);font-size:14px;margin:20px auto;max-width:500px}
+.last-upd{font-size:11px;color:var(--hint);text-align:right;margin-bottom:10px}
+.lrt-big{font-size:28px;font-weight:700;color:var(--blue);line-height:1}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-left">
+<div class="hdr">
+  <div class="hdr-l">
     <div class="logo">S</div>
-    <div>
-      <div class="header-title">Dashboard Comercial — Salute</div>
-      <div class="header-sub">Setor | Vendas</div>
-    </div>
+    <div><div class="hdr-title">Dashboard Comercial — Salute</div><div class="hdr-sub">Setor | Vendas</div></div>
   </div>
-  <div class="header-right">
-    <span><span class="status-dot loading" id="statusDot"></span><span class="status-text" id="statusText">Carregando...</span></span>
-    <select id="filtroVendedor" onchange="renderAll()"><option value="">Todos os vendedores</option></select>
-    <select id="filtroPeriodo" onchange="renderAll()">
-      <option value="7">Últimos 7 dias</option>
-      <option value="15">Últimos 15 dias</option>
-      <option value="30" selected>Últimos 30 dias</option>
-      <option value="0">Todo o período</option>
-    </select>
-    <button class="btn-refresh" onclick="carregarDados()">
+  <div class="hdr-r">
+    <span><span class="sdot loading" id="sdot"></span><span class="stxt" id="stxt">Carregando...</span></span>
+    <button class="btn-primary" onclick="carregarTudo()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
       Atualizar
     </button>
   </div>
 </div>
 
+<div class="tabs">
+  <div class="tab active" onclick="mudarAba('crm')">CRM — Atendimentos</div>
+  <div class="tab" onclick="mudarAba('acomp')">Acompanhamento diário</div>
+</div>
+
 <div class="main">
-  <div id="loadingScreen" class="loading-screen">
-    <div class="spinner"></div>
-    <div class="loading-text">Conectando ao Google Sheets...</div>
+
+<!-- ===== ABA CRM ===== -->
+<div class="page active" id="page-crm">
+  <div class="fbar">
+    <div class="fbar-group"><div class="fbar-label">Vendedor</div>
+      <select id="filtroVendedor" onchange="renderCRM()"><option value="">Todos</option></select></div>
+    <div class="fbar-group"><div class="fbar-label">Período</div>
+      <select id="filtroPeriodo" onchange="renderCRM()">
+        <option value="7">7 dias</option><option value="15">15 dias</option>
+        <option value="30" selected>30 dias</option><option value="0">Todo período</option>
+      </select></div>
+    <div class="fbar-group"><div class="fbar-label">Etiquetas</div>
+      <div class="etiq-wrap" id="etiqWrap">
+        <button class="etiq-btn" onclick="toggleEtiq()" id="etiqBtn">
+          <span id="etiqLabel">Todas as etiquetas</span><span style="font-size:10px;color:var(--muted)">▾</span>
+        </button>
+        <div class="etiq-dropdown" id="etiqDrop">
+          <div class="etiq-search"><input type="text" placeholder="Buscar etiqueta..." id="etiqSearch" oninput="filtrarEtiq()"></div>
+          <div id="etiqOpcoes"></div>
+          <div class="etiq-footer" onclick="limparEtiq()">Limpar seleção</div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div id="dashContent" style="display:none;">
-    <div class="last-update" id="lastUpdate"></div>
-
+  <div id="loadCRM" class="loading-screen"><div class="spinner"></div><div class="loading-text">Conectando ao Google Sheets...</div></div>
+  <div id="dashCRM" style="display:none">
+    <div class="last-upd" id="lastUpdCRM"></div>
     <div class="metrics" id="metricsGrid"></div>
-
-    <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Lead response time médio do time</div>
+      <div class="lrt-big" id="lrtGeral">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Tempo entre atribuição para atendente → primeira resposta</div>
+    </div>
+    <div class="g2">
       <div class="card">
-        <div class="card-title">Ranking de vendedores — atendimentos</div>
-        <div class="table-scroll"><table id="rankingTable"></table></div>
+        <div class="card-title">Ranking — atendimentos</div>
+        <div class="tscroll"><table id="rankingTable"></table></div>
       </div>
       <div class="card">
         <div class="card-title">Motivos de finalização</div>
         <div id="motivosLista"></div>
       </div>
     </div>
-
-    <div class="grid-2">
+    <div class="g2">
       <div class="card">
-        <div class="card-title">Taxa de conversão por vendedor — vendas realizadas (top 10)</div>
-        <div class="chart-wrap" style="height:280px;"><canvas id="convChart"></canvas></div>
+        <div class="card-title">Taxa de conversão — vendas realizadas (top 10)</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="convChart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-title">Atendimentos por dia (1ª resposta da atendente)</div>
-        <div class="chart-wrap" style="height:280px;"><canvas id="volChart"></canvas></div>
+        <div class="card-title">Lead response time por vendedor — top 10 mais rápidos</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="lrtChart"></canvas></div>
       </div>
     </div>
-
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-title">Card no CRM — distribuição por etapa</div>
-      <div class="chart-wrap" style="height:220px;"><canvas id="crmChart"></canvas></div>
+    <div class="card">
+      <div class="card-title">Atendimentos por dia (1ª resposta da atendente)</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="volChart"></canvas></div>
     </div>
   </div>
 </div>
 
-<script>
-const SHEET_ID = '11kR5ru6AzOO7INRYsj22xw8ONfXWVEKeCUcFxtUuPss';
-const GID = '1498535428';
-const COLS = {
-  ATENDENTE: 15,
-  FILA: 11,
-  MOTIVO: 19,
-  CARD: 14,
-  DATA_ATRIBUIDO: 13,
-  PRIMEIRA_RESPOSTA: 16,
-  VALOR: 18,
-};
+<!-- ===== ABA ACOMPANHAMENTO ===== -->
+<div class="page" id="page-acomp">
+  <div id="loadAcomp" class="loading-screen"><div class="spinner"></div><div class="loading-text">Carregando planilha de acompanhamento...</div></div>
+  <div id="dashAcomp" style="display:none">
+    <div class="last-upd" id="lastUpdAcomp"></div>
+    <div class="metrics" id="metricsAcomp"></div>
 
-// Conversão = Venda Realizada
-function isVenda(r) {
-  return (r[COLS.MOTIVO]||'').toLowerCase().includes('venda realizada');
+    <div class="manual-box">
+      <div class="manual-title">Entrada manual — Clube Vida e Ligações</div>
+      <div class="manual-sub">Preencha 1x por dia. Os valores são somados aos totais do acompanhamento.</div>
+      <div class="manual-grid" id="manualGrid"></div>
+      <div style="display:flex;align-items:center;margin-top:12px">
+        <button class="btn-save" onclick="salvarManual()">Salvar</button>
+        <span class="saved-tag" id="savedTag">✓ Salvo!</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Acompanhamento por vendedor</div>
+      <div class="fbar" style="margin-bottom:12px;border:none;padding:0;background:transparent">
+        <div class="fbar-group"><div class="fbar-label">Período</div>
+          <select id="filtroAcompPer" onchange="renderAcomp()">
+            <option value="7">7 dias</option><option value="15">15 dias</option>
+            <option value="30" selected>30 dias</option><option value="0">Todo período</option>
+          </select></div>
+        <div class="fbar-group"><div class="fbar-label">Vendedor</div>
+          <select id="filtroAcompVend" onchange="renderAcomp()"><option value="">Todos</option></select></div>
+      </div>
+      <div class="tscroll"><table class="acomp-t" id="acompTable"></table></div>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Leads recebidos vs vendas por dia</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="acompChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">GAP acumulado para meta por vendedor</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="gapChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+const CRM_ID='11kR5ru6AzOO7INRYsj22xw8ONfXWVEKeCUcFxtUuPss';
+const CRM_GID='1498535428';
+const ACOMP_ID='1YVteuY9nSa5-hUcqppe9lAbZqzHja9FuI9QfoINUY8g';
+const COLS={ATENDENTE:15,FILA:11,MOTIVO:19,ETIQUETAS:6,DATA_ATRIB:13,PRIMEIRA_RESP:16};
+
+let crmData=[],acompData={},vendedoresAcomp=[],charts={},etiqSel=new Set(),manualData={},todasEtiq=[];
+
+// ── HELPERS ──────────────────────────────────────────────────
+const isVenda=r=>(r[COLS.MOTIVO]||'').toLowerCase().includes('venda realizada');
+
+function parseData(s){
+  if(!s) return null;
+  const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  const d=new Date(s);return isNaN(d)?null:d;
+}
+function parseDT(s){
+  if(!s) return null;
+  const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5]);
+  const d=new Date(s);return isNaN(d)?null:d;
+}
+function fmtMin(m){
+  if(m===null||isNaN(m)) return '—';
+  if(m<60) return Math.round(m)+'min';
+  const h=Math.floor(m/60),mm=Math.round(m%60);
+  return h+'h'+(mm>0?mm+'min':'');
+}
+function parsearCSV(csv){
+  const res=[];let row=[],f='',q=false;
+  for(let i=0;i<csv.length;i++){
+    const c=csv[i],n=csv[i+1];
+    if(c==='"'){if(q&&n==='"'){f+='"';i++;}else q=!q;}
+    else if(c===','&&!q){row.push(f);f='';}
+    else if((c==='\n'||(c==='\r'&&n==='\n'))&&!q){if(c==='\r')i++;row.push(f);res.push(row);row=[];f='';}
+    else f+=c;
+  }
+  if(f||row.length){row.push(f);res.push(row);}
+  return res.filter(l=>l.some(c=>(c||'').trim()!==''));
+}
+function setStatus(t,txt){document.getElementById('sdot').className='sdot '+t;document.getElementById('stxt').textContent=txt;}
+function mudarAba(a){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['crm','acomp'][i]===a));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+a).classList.add('active');
 }
 
-let rawData = [];
-let charts = {};
+// ── ETIQUETAS ────────────────────────────────────────────────
+document.addEventListener('click',e=>{if(!document.getElementById('etiqWrap').contains(e.target)) document.getElementById('etiqDrop').classList.remove('open');});
+function toggleEtiq(){document.getElementById('etiqDrop').classList.toggle('open');}
+function filtrarEtiq(){
+  const q=document.getElementById('etiqSearch').value.toLowerCase();
+  document.querySelectorAll('#etiqOpcoes .etiq-item').forEach(el=>el.style.display=el.dataset.v.toLowerCase().includes(q)?'flex':'none');
+}
+function limparEtiq(){etiqSel.clear();document.querySelectorAll('#etiqOpcoes input').forEach(cb=>cb.checked=false);atualizarEtiqBtn();renderCRM();}
+function atualizarEtiqBtn(){const n=etiqSel.size;document.getElementById('etiqLabel').textContent=n===0?'Todas as etiquetas':`${n} selecionada${n>1?'s':''}`;}
+function buildEtiqDrop(){
+  document.getElementById('etiqOpcoes').innerHTML=todasEtiq.map(e=>`
+    <label class="etiq-item" data-v="${e}">
+      <input type="checkbox" value="${e}" ${etiqSel.has(e)?'checked':''}
+        onchange="toggleEtiqItem(this.value,this.checked)">
+      <span style="font-size:12px">${e}</span>
+    </label>`).join('');
+}
+function toggleEtiqItem(v,c){if(c) etiqSel.add(v);else etiqSel.delete(v);atualizarEtiqBtn();renderCRM();}
 
-async function carregarDados() {
-  setStatus('loading', 'Carregando...');
-  document.getElementById('loadingScreen').style.display = 'flex';
-  document.getElementById('dashContent').style.display = 'none';
+// ── LOAD ─────────────────────────────────────────────────────
+async function carregarTudo(){setStatus('loading','Carregando...');await Promise.all([carregarCRM(),carregarAcomp()]);}
 
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const csv = await res.text();
-    const linhas = parsearCSV(csv);
-    if (linhas.length < 2) throw new Error('Sem dados');
-
-    const cabecalho = linhas[0];
-    rawData = linhas.slice(1).filter(l => l.some(c => (c||'').trim() !== ''));
-
-    // Popular filtro de vendedores
-    const vendedores = [...new Set(rawData.map(r => r[COLS.ATENDENTE]).filter(Boolean))].sort();
-    const sel = document.getElementById('filtroVendedor');
-    const atual = sel.value;
-    sel.innerHTML = '<option value="">Todos os vendedores</option>' +
-      vendedores.map(v => `<option value="${v}"${v===atual?' selected':''}>${v}</option>`).join('');
-
-    document.getElementById('lastUpdate').textContent =
-      'Última atualização: ' + new Date().toLocaleString('pt-BR');
-
-    setStatus('ok', rawData.length.toLocaleString('pt-BR') + ' registros carregados');
-    document.getElementById('loadingScreen').style.display = 'none';
-    document.getElementById('dashContent').style.display = 'block';
-    renderAll();
-
-  } catch(e) {
-    setStatus('error', 'Erro: ' + e.message);
-    document.getElementById('loadingScreen').innerHTML = `
-      <div class="error-box">
-        <strong>Erro ao carregar dados</strong><br><br>
-        ${e.message}<br><br>
-        <small>Verifique se a planilha está compartilhada publicamente (Qualquer pessoa com o link).</small><br><br>
-        <button onclick="carregarDados()" style="margin-top:8px;">Tentar novamente</button>
-      </div>`;
+async function carregarCRM(){
+  try{
+    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CRM_GID}`);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const rows=parsearCSV(await res.text());
+    crmData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
+    // vendedores
+    const vends=[...new Set(crmData.map(r=>r[COLS.ATENDENTE]).filter(Boolean))].sort();
+    const sv=document.getElementById('filtroVendedor'),cur=sv.value;
+    sv.innerHTML='<option value="">Todos</option>'+vends.map(v=>`<option${v===cur?' selected':''}>${v}</option>`).join('');
+    // etiquetas
+    const es=new Set();
+    crmData.forEach(r=>(r[COLS.ETIQUETAS]||'').split(';').forEach(e=>{const t=e.trim();if(t&&t!=='N/A') es.add(t);}));
+    todasEtiq=[...es].sort();buildEtiqDrop();
+    document.getElementById('lastUpdCRM').textContent='Última atualização: '+new Date().toLocaleString('pt-BR');
+    document.getElementById('loadCRM').style.display='none';
+    document.getElementById('dashCRM').style.display='block';
+    renderCRM();setStatus('ok',crmData.length.toLocaleString('pt-BR')+' registros');
+  }catch(e){
+    setStatus('error','Erro: '+e.message);
+    document.getElementById('loadCRM').innerHTML=`<div class="error-box"><strong>Erro ao carregar CRM</strong><br><br>${e.message}<br><br><small>Certifique-se que a planilha está compartilhada publicamente.</small><br><br><button onclick="carregarCRM()">Tentar novamente</button></div>`;
   }
 }
 
-function getFiltrado() {
-  const vendedor = document.getElementById('filtroVendedor').value;
-  const dias = parseInt(document.getElementById('filtroPeriodo').value);
-  const corte = dias > 0 ? new Date(Date.now() - dias * 86400000) : null;
+async function carregarAcomp(){
+  try{
+    // Descobre abas via feed público
+    const metaUrl=`https://docs.google.com/spreadsheets/d/${ACOMP_ID}/feeds/worksheets/default/public/basic?alt=json`;
+    let abas=[];
+    try{
+      const mr=await fetch(metaUrl);
+      if(mr.ok){
+        const mj=await mr.json();
+        (mj.feed.entry||[]).forEach(e=>{
+          const id=e.id.$t;const gm=id.match(/worksheets\/[^/]+\/[^/]+\/([^/]+)$/);
+          if(gm) abas.push({name:e.title.$t,gid:gm[1]});
+        });
+      }
+    }catch(e){console.warn('Feed não disponível:',e);}
 
-  return rawData.filter(r => {
-    if (vendedor && r[COLS.ATENDENTE] !== vendedor) return false;
-    if (corte) {
-      const d = parseData(r[COLS.DATA_ATRIBUIDO]);
-      if (d && d < corte) return false;
+    if(!abas.length){
+      // fallback: usa o gid da URL que o usuário forneceu
+      abas=[{name:'Acompanhamento',gid:'314913362'}];
+    }
+
+    acompData={};vendedoresAcomp=[];
+    for(const {name,gid} of abas){
+      try{
+        const r=await fetch(`https://docs.google.com/spreadsheets/d/${ACOMP_ID}/export?format=csv&gid=${gid}`);
+        if(!r.ok) continue;
+        const rows=parsearCSV(await r.text());
+        if(rows.length<2) continue;
+        acompData[name]=rows;vendedoresAcomp.push(name);
+      }catch(e){console.warn('Aba '+name,e);}
+    }
+
+    const sv=document.getElementById('filtroAcompVend');
+    sv.innerHTML='<option value="">Todos</option>'+vendedoresAcomp.map(v=>`<option>${v}</option>`).join('');
+    document.getElementById('lastUpdAcomp').textContent='Última atualização: '+new Date().toLocaleString('pt-BR');
+    document.getElementById('loadAcomp').style.display='none';
+    document.getElementById('dashAcomp').style.display='block';
+    carregarManual();buildManualGrid();renderAcomp();
+  }catch(e){
+    document.getElementById('loadAcomp').innerHTML=`<div class="error-box"><strong>Erro acompanhamento</strong><br><br>${e.message}<br><br><small>Verifique o compartilhamento da planilha.</small><br><br><button onclick="carregarAcomp()">Tentar novamente</button></div>`;
+  }
+}
+
+// ── RENDER CRM ───────────────────────────────────────────────
+function getFiltCRM(){
+  const vend=document.getElementById('filtroVendedor').value;
+  const dias=parseInt(document.getElementById('filtroPeriodo').value);
+  const corte=dias>0?new Date(Date.now()-dias*86400000):null;
+  return crmData.filter(r=>{
+    if(vend&&r[COLS.ATENDENTE]!==vend) return false;
+    if(corte){const d=parseData(r[COLS.DATA_ATRIB]);if(d&&d<corte) return false;}
+    if(etiqSel.size>0){
+      const el=(r[COLS.ETIQUETAS]||'').split(';').map(e=>e.trim());
+      if(![...etiqSel].every(s=>el.includes(s))) return false;
     }
     return true;
   });
 }
 
-function parseData(str) {
-  if (!str) return null;
-  const m = str.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
-  const d = new Date(str);
-  return isNaN(d) ? null : d;
+function renderCRM(){
+  const d=getFiltCRM();
+  renderMetricsCRM(d);renderLRT(d);renderRanking(d);renderMotivos(d);renderConv(d);renderLRTChart(d);renderVol(d);
 }
 
-function renderAll() {
-  const data = getFiltrado();
-  renderMetrics(data);
-  renderRanking(data);
-  renderMotivos(data);
-  renderConversao(data);
-  renderVolume(data);
-  renderCRM(data);
-}
-
-function renderMetrics(data) {
-  const total = data.length;
-  const vendas = data.filter(r => isVenda(r)).length;
-  const perdidos = data.filter(r =>
-    (r[COLS.MOTIVO]||'').includes('Falta de Comunicação') ||
-    (r[COLS.MOTIVO]||'').includes('Negociação Abandonada')).length;
-  const comValor = data.filter(r => r[COLS.VALOR] && parseFloat(r[COLS.VALOR]) > 0);
-  const totalValor = comValor.reduce((s,r) => s + parseFloat(r[COLS.VALOR]), 0);
-  const conv = total > 0 ? (vendas/total*100).toFixed(1) : 0;
-  const vendAtivos = new Set(data.map(r => r[COLS.ATENDENTE]).filter(Boolean)).size;
-
-  const badgeConv = conv >= 20 ? 'badge-green' : conv >= 10 ? 'badge-amber' : 'badge-red';
-
-  document.getElementById('metricsGrid').innerHTML = `
-    <div class="metric">
-      <div class="metric-label">Atendimentos</div>
-      <div class="metric-value">${total.toLocaleString('pt-BR')}</div>
-      <div class="metric-sub">${vendAtivos} vendedor${vendAtivos!==1?'es':''} ativo${vendAtivos!==1?'s':''}</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Vendas realizadas</div>
-      <div class="metric-value">${vendas.toLocaleString('pt-BR')}</div>
-      <span class="metric-badge ${badgeConv}">Conv. ${conv}%</span>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Negócios perdidos</div>
-      <div class="metric-value">${perdidos.toLocaleString('pt-BR')}</div>
-      <div class="metric-sub">${total>0?(perdidos/total*100).toFixed(1):0}% do total</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Valor em cards (R$)</div>
-      <div class="metric-value">R$ ${Math.round(totalValor).toLocaleString('pt-BR')}</div>
-      <div class="metric-sub">${comValor.length} cards com valor</div>
-    </div>
-  `;
-}
-
-function renderRanking(data) {
-  const map = {};
-  data.forEach(r => {
-    const v = r[COLS.ATENDENTE]; if (!v) return;
-    if (!map[v]) map[v] = { total:0, vendas:0 };
-    map[v].total++;
-    if (isVenda(r)) map[v].vendas++;
+function calcLRT(data){
+  const t=[];
+  data.forEach(r=>{
+    const a=parseDT(r[COLS.DATA_ATRIB]),b=parseDT(r[COLS.PRIMEIRA_RESP]);
+    if(!a||!b) return;const d=(b-a)/60000;if(d>=0&&d<1440) t.push(d);
   });
-  const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total).slice(0, 15);
-  const max = sorted[0]?.[1]?.total || 1;
+  return t.length?t.reduce((a,b)=>a+b,0)/t.length:null;
+}
 
-  const rows = sorted.map(([v, s], i) => {
-    const conv = s.total > 0 ? (s.vendas/s.total*100).toFixed(0) : 0;
-    const badge = conv >= 20 ? 'badge-green' : conv >= 10 ? 'badge-amber' : 'badge-red';
-    const rankClass = i === 0 ? 'rank rank-1' : i === 1 ? 'rank rank-2' : i === 2 ? 'rank rank-3' : 'rank';
-    return `<tr>
-      <td><span class="${rankClass}">${i+1}</span></td>
-      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v}</td>
-      <td>
-        <div class="bar-wrap">
-          <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(s.total/max*100)}%"></div></div>
-          <span style="font-size:12px;min-width:36px;text-align:right;">${s.total}</span>
-        </div>
-      </td>
-      <td><span class="metric-badge ${badge}" style="font-size:11px;">${conv}%</span></td>
-      <td style="font-size:12px;color:var(--muted);">${s.vendas} vendas</td>
-    </tr>`;
+function renderMetricsCRM(data){
+  const total=data.length,vendas=data.filter(isVenda).length;
+  const perd=data.filter(r=>(r[COLS.MOTIVO]||'').includes('Falta de Comunicação')||(r[COLS.MOTIVO]||'').includes('Negociação Abandonada')).length;
+  const conv=total>0?(vendas/total*100).toFixed(1):0;
+  const vativos=new Set(data.map(r=>r[COLS.ATENDENTE]).filter(Boolean)).size;
+  const bc=conv>=20?'bg-green':conv>=10?'bg-amber':'bg-red';
+  document.getElementById('metricsGrid').innerHTML=`
+    <div class="metric"><div class="metric-label">Atendimentos</div><div class="metric-value">${total.toLocaleString('pt-BR')}</div><div class="metric-sub">${vativos} vendedores ativos</div></div>
+    <div class="metric"><div class="metric-label">Vendas realizadas</div><div class="metric-value">${vendas.toLocaleString('pt-BR')}</div><span class="mbadge ${bc}">Conv. ${conv}%</span></div>
+    <div class="metric"><div class="metric-label">Negócios perdidos</div><div class="metric-value">${perd.toLocaleString('pt-BR')}</div><div class="metric-sub">${total>0?(perd/total*100).toFixed(1):0}% do total</div></div>
+    <div class="metric"><div class="metric-label">LRT médio</div><div class="metric-value" style="font-size:20px">${fmtMin(calcLRT(data))}</div><div class="metric-sub">Lead response time</div></div>`;
+}
+
+function renderLRT(data){document.getElementById('lrtGeral').textContent=fmtMin(calcLRT(data));}
+
+function renderRanking(data){
+  const map={};
+  data.forEach(r=>{const v=r[COLS.ATENDENTE];if(!v) return;if(!map[v]) map[v]={total:0,vendas:0};map[v].total++;if(isVenda(r)) map[v].vendas++;});
+  const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total).slice(0,15);
+  const max=sorted[0]?.[1]?.total||1;
+  const rows=sorted.map(([v,s],i)=>{
+    const c=s.total>0?(s.vendas/s.total*100).toFixed(0):0;
+    const bc=c>=20?'bg-green':c>=10?'bg-amber':'bg-red';
+    const rc=i===0?'rank rank-1':i===1?'rank rank-2':i===2?'rank rank-3':'rank';
+    return `<tr><td><span class="${rc}">${i+1}</span></td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v}</td>
+      <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(s.total/max*100)}%;background:var(--blue)"></div></div><span style="font-size:12px;min-width:32px;text-align:right">${s.total}</span></div></td>
+      <td><span class="mbadge ${bc}" style="font-size:11px">${c}%</span></td>
+      <td style="font-size:12px;color:var(--muted)">${s.vendas} vendas</td></tr>`;
   }).join('');
-
-  document.getElementById('rankingTable').innerHTML = `
-    <thead><tr>
-      <th>#</th><th>Vendedor</th><th>Atendimentos</th><th>Conv.</th><th>Vendas</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>`;
+  document.getElementById('rankingTable').innerHTML=`<thead><tr><th>#</th><th>Vendedor</th><th>Atendimentos</th><th>Conv.</th><th>Vendas</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
-function renderMotivos(data) {
-  const map = {};
-  data.forEach(r => {
-    const m = (r[COLS.MOTIVO]||'').trim();
-    if (!m || m === 'N/A') return;
-    map[m] = (map[m]||0) + 1;
-  });
-  const sorted = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,8);
-  const total = sorted.reduce((s,[,v]) => s+v, 0);
-
-  const colors = ['#185FA5','#1D9E75','#E24B4A','#BA7517','#534AB7','#D85A30','#6b7280','#D4537E'];
-
-  document.getElementById('motivosLista').innerHTML = sorted.map(([m, n], i) => {
-    const pct = total > 0 ? (n/total*100).toFixed(0) : 0;
-    const label = m.replace(/^[✅❌ℹ️🔄⚠️]/u,'').trim();
-    return `<div class="motivo-row">
-      <div style="width:10px;height:10px;border-radius:2px;background:${colors[i%colors.length]};flex-shrink:0;"></div>
-      <div class="motivo-label" title="${label}">${label}</div>
-      <div class="motivo-count">${n.toLocaleString('pt-BR')}</div>
-      <div class="motivo-pct">${pct}%</div>
-    </div>`;
+function renderMotivos(data){
+  const map={};
+  data.forEach(r=>{const m=(r[COLS.MOTIVO]||'').trim();if(!m||m==='N/A') return;map[m]=(map[m]||0)+1;});
+  const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+  const colors=['#185FA5','#1D9E75','#E24B4A','#BA7517','#534AB7','#D85A30','#6b7280','#D4537E'];
+  document.getElementById('motivosLista').innerHTML=sorted.map(([m,n],i)=>{
+    const p=total>0?(n/total*100).toFixed(0):0;
+    const l=m.replace(/^[✅❌ℹ️🔄⚠️]/u,'').trim();
+    return `<div class="mrow"><div style="width:10px;height:10px;border-radius:2px;background:${colors[i%8]};flex-shrink:0"></div><div class="mlabel" title="${l}">${l}</div><div class="mcount">${n.toLocaleString('pt-BR')}</div><div class="mpct">${p}%</div></div>`;
   }).join('');
 }
 
-function renderConversao(data) {
-  const map = {};
-  data.forEach(r => {
-    const v = r[COLS.ATENDENTE]; if (!v) return;
-    if (!map[v]) map[v] = { total:0, vendas:0 };
-    map[v].total++;
-    if (isVenda(r)) map[v].vendas++;
-  });
-  const sorted = Object.entries(map)
-    .filter(([,s]) => s.total >= 5)
-    .map(([v,s]) => ({ v, conv: s.total>0 ? parseFloat((s.vendas/s.total*100).toFixed(1)) : 0 }))
-    .sort((a,b) => b.conv-a.conv).slice(0,10);
-
-  const labels = sorted.map(s => s.v.split(' ')[0]);
-  const vals = sorted.map(s => s.conv);
-  const colors = vals.map(v => v >= 20 ? '#1D9E75' : v >= 10 ? '#BA7517' : '#E24B4A');
-
-  if (charts.conv) charts.conv.destroy();
-  charts.conv = new Chart(document.getElementById('convChart'), {
-    type: 'bar',
-    data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderRadius: 4 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, max: 100, ticks: { callback: v => v+'%', font:{size:11} }, grid: { color: '#f0f1f3' } },
-        x: { ticks: { font:{size:11} }, grid: { display: false } }
-      }
-    }
-  });
+function renderConv(data){
+  const map={};
+  data.forEach(r=>{const v=r[COLS.ATENDENTE];if(!v) return;if(!map[v]) map[v]={total:0,vendas:0};map[v].total++;if(isVenda(r)) map[v].vendas++;});
+  const sorted=Object.entries(map).filter(([,s])=>s.total>=5).map(([v,s])=>({v,c:s.total>0?+(s.vendas/s.total*100).toFixed(1):0})).sort((a,b)=>b.c-a.c).slice(0,10);
+  if(charts.conv) charts.conv.destroy();
+  charts.conv=new Chart(document.getElementById('convChart'),{type:'bar',data:{labels:sorted.map(s=>s.v.split(' ')[0]),datasets:[{data:sorted.map(s=>s.c),backgroundColor:sorted.map(s=>s.c>=20?'#1D9E75':s.c>=10?'#BA7517':'#E24B4A'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%',font:{size:11}},grid:{color:'#f0f1f3'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}});
 }
 
-function renderVolume(data) {
-  const map = {};
-  data.forEach(r => {
-    // Usa Primeira Resposta da Atendente (col Q = índice 16)
-    const d = parseData(r[COLS.PRIMEIRA_RESPOSTA]);
-    if (!d) return;
-    const key = d.toLocaleDateString('pt-BR');
-    map[key] = (map[key]||0) + 1;
+function renderLRTChart(data){
+  const map={};
+  data.forEach(r=>{
+    const v=r[COLS.ATENDENTE];if(!v) return;
+    const a=parseDT(r[COLS.DATA_ATRIB]),b=parseDT(r[COLS.PRIMEIRA_RESP]);
+    if(!a||!b) return;const d=(b-a)/60000;if(d<0||d>=1440) return;
+    if(!map[v]) map[v]=[];map[v].push(d);
   });
-
-  const entries = Object.entries(map).sort((a,b) => {
-    const pa = a[0].split('/').reverse().join('');
-    const pb = b[0].split('/').reverse().join('');
-    return pa.localeCompare(pb);
-  }).slice(-30);
-
-  if (charts.vol) charts.vol.destroy();
-  charts.vol = new Chart(document.getElementById('volChart'), {
-    type: 'line',
-    data: {
-      labels: entries.map(([k]) => k),
-      datasets: [{
-        data: entries.map(([,v]) => v),
-        borderColor: '#185FA5',
-        backgroundColor: 'rgba(24,95,165,0.08)',
-        borderWidth: 2,
-        pointRadius: 3,
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, ticks: { font:{size:11} }, grid: { color: '#f0f1f3' } },
-        x: { ticks: { font:{size:10}, maxTicksLimit: 10 }, grid: { display: false } }
-      }
-    }
-  });
+  const sorted=Object.entries(map).filter(([,a])=>a.length>=3).map(([v,a])=>({v,avg:a.reduce((x,y)=>x+y,0)/a.length})).sort((a,b)=>a.avg-b.avg).slice(0,10);
+  if(charts.lrt) charts.lrt.destroy();
+  charts.lrt=new Chart(document.getElementById('lrtChart'),{type:'bar',data:{labels:sorted.map(s=>s.v.split(' ')[0]),datasets:[{data:sorted.map(s=>+s.avg.toFixed(1)),backgroundColor:sorted.map(s=>s.avg<=10?'#1D9E75':s.avg<=30?'#BA7517':'#E24B4A'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtMin(v),font:{size:11}},grid:{color:'#f0f1f3'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}});
 }
 
-function renderCRM(data) {
-  const map = {};
-  data.forEach(r => {
-    const c = (r[COLS.CARD]||'').trim();
-    if (!c || c === 'N/A' || c === '') return;
-    map[c] = (map[c]||0) + 1;
+function renderVol(data){
+  const map={};
+  data.forEach(r=>{const d=parseData(r[COLS.PRIMEIRA_RESP]);if(!d) return;const k=d.toLocaleDateString('pt-BR');map[k]=(map[k]||0)+1;});
+  const entries=Object.entries(map).sort((a,b)=>a[0].split('/').reverse().join('').localeCompare(b[0].split('/').reverse().join(''))).slice(-30);
+  if(charts.vol) charts.vol.destroy();
+  charts.vol=new Chart(document.getElementById('volChart'),{type:'line',data:{labels:entries.map(([k])=>k),datasets:[{data:entries.map(([,v])=>v),borderColor:'#185FA5',backgroundColor:'rgba(24,95,165,0.07)',borderWidth:2,pointRadius:3,fill:true,tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{font:{size:11}},grid:{color:'#f0f1f3'}},x:{ticks:{font:{size:10},maxTicksLimit:12},grid:{display:false}}}}});
+}
+
+// ── RENDER ACOMPANHAMENTO ────────────────────────────────────
+function parsearLinhas(rows){
+  if(!rows||rows.length<2) return [];
+  const h=rows[0].map(c=>(c||'').toLowerCase().trim());
+  const idx=(terms)=>h.findIndex(c=>terms.some(t=>c.includes(t)));
+  const iD=idx(['data']),iR=idx(['receb']),iDes=idx(['descar']),iV=idx(['vend','realiz']),iM=idx(['meta']),iVi=idx(['vida']),iL=idx(['liga']);
+  return rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!=='')).map(r=>({
+    data:r[iD]||'',
+    recebidos:parseFloat((r[iR]||'').replace(',','.'))||0,
+    descartados:parseFloat((r[iDes]||'').replace(',','.'))||0,
+    vendas:parseFloat((r[iV]||'').replace(',','.'))||0,
+    meta:parseFloat((r[iM]||'').replace(',','.'))||0,
+    vidas:parseFloat((r[iVi]||'').replace(',','.'))||0,
+    ligacoes:parseFloat((r[iL]||'').replace(',','.'))||0,
+  }));
+}
+
+function renderAcomp(){
+  const per=parseInt(document.getElementById('filtroAcompPer').value);
+  const vf=document.getElementById('filtroAcompVend').value;
+  const corte=per>0?new Date(Date.now()-per*86400000):null;
+  const nomes=vendedoresAcomp.filter(n=>!vf||n===vf);
+
+  let totR=0,totD=0,totV=0,totM=0,totVi=0,totL=0;
+  const linhasTab=[];
+
+  nomes.forEach(nome=>{
+    const linhas=parsearLinhas(acompData[nome]).filter(l=>{
+      if(!corte) return true;const d=parseData(l.data);return d&&d>=corte;
+    });
+    const r=linhas.reduce((a,l)=>({recebidos:a.recebidos+l.recebidos,descartados:a.descartados+l.descartados,vendas:a.vendas+l.vendas,meta:a.meta+l.meta,vidas:a.vidas+l.vidas,ligacoes:a.ligacoes+l.ligacoes}),{recebidos:0,descartados:0,vendas:0,meta:0,vidas:0,ligacoes:0});
+    const m=manualData[nome]||{};
+    r.vidas+=m.vidas||0;r.ligacoes+=m.ligacoes||0;
+    totR+=r.recebidos;totD+=r.descartados;totV+=r.vendas;totM+=r.meta;totVi+=r.vidas;totL+=r.ligacoes;
+    linhasTab.push({nome,r,gap:r.vendas-r.meta,conv:r.recebidos>0?(r.vendas/r.recebidos*100).toFixed(1):0});
   });
-  const sorted = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,8);
-  const colors = ['#185FA5','#1D9E75','#534AB7','#BA7517','#D85A30','#E24B4A','#6b7280','#D4537E'];
 
-  if (charts.crm) charts.crm.destroy();
-  charts.crm = new Chart(document.getElementById('crmChart'), {
-    type: 'bar',
-    data: {
-      labels: sorted.map(([k]) => k),
-      datasets: [{
-        data: sorted.map(([,v]) => v),
-        backgroundColor: sorted.map((_,i) => colors[i%colors.length]),
-        borderRadius: 4
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { beginAtZero: true, ticks: { font:{size:11} }, grid: { color: '#f0f1f3' } },
-        y: { ticks: { font:{size:11} }, grid: { display: false } }
-      }
-    }
+  const gapTot=totV-totM,convTot=totR>0?(totV/totR*100).toFixed(1):0;
+  const gbc=gapTot>=0?'bg-green':gapTot>-5?'bg-amber':'bg-red';
+  const cbc=convTot>=20?'bg-green':convTot>=10?'bg-amber':'bg-red';
+  document.getElementById('metricsAcomp').innerHTML=`
+    <div class="metric"><div class="metric-label">Leads recebidos</div><div class="metric-value">${totR.toLocaleString('pt-BR')}</div><div class="metric-sub">Time completo</div></div>
+    <div class="metric"><div class="metric-label">Descartados</div><div class="metric-value">${totD.toLocaleString('pt-BR')}</div><div class="metric-sub">${totR>0?(totD/totR*100).toFixed(1):0}% dos recebidos</div></div>
+    <div class="metric"><div class="metric-label">Vendas realizadas</div><div class="metric-value">${totV.toLocaleString('pt-BR')}</div><span class="mbadge ${cbc}">Conv. ${convTot}%</span></div>
+    <div class="metric"><div class="metric-label">Meta do período</div><div class="metric-value">${totM.toLocaleString('pt-BR')}</div><span class="mbadge ${gbc}">GAP: ${gapTot>=0?'+':''}${gapTot}</span></div>
+    <div class="metric"><div class="metric-label">Vidas vendidas</div><div class="metric-value">${totVi.toLocaleString('pt-BR')}</div><div class="metric-sub">Clube Vida</div></div>
+    <div class="metric"><div class="metric-label">Ligações</div><div class="metric-value">${totL.toLocaleString('pt-BR')}</div><div class="metric-sub">Total do time</div></div>`;
+
+  const trows=linhasTab.map(({nome,r,gap,conv})=>{
+    const gc=gap>=0?'gap-pos':gap<-2?'gap-neg':'gap-zero';
+    return `<tr><td>${nome}</td><td>${r.recebidos}</td><td>${r.descartados}</td><td>${r.vendas}</td><td>${r.meta}</td><td class="${gc}">${gap>=0?'+':''}${gap}</td><td>${conv}%</td><td>${r.vidas}</td><td>${r.ligacoes}</td></tr>`;
   });
+  const gtc=gapTot>=0?'gap-pos':gapTot<-2?'gap-neg':'gap-zero';
+  trows.push(`<tr class="total-row"><td>TOTAL TIME</td><td>${totR}</td><td>${totD}</td><td>${totV}</td><td>${totM}</td><td class="${gtc}">${gapTot>=0?'+':''}${gapTot}</td><td>${convTot}%</td><td>${totVi}</td><td>${totL}</td></tr>`);
+  document.getElementById('acompTable').innerHTML=`<thead><tr><th>Vendedor</th><th>Recebidos</th><th>Descartados</th><th>Vendas</th><th>Meta</th><th>GAP</th><th>Conv.</th><th>Vidas</th><th>Ligações</th></tr></thead><tbody>${trows.join('')}</tbody>`;
+
+  renderAcompCharts(nomes,corte,linhasTab);
 }
 
-function setStatus(type, text) {
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
-  dot.className = 'status-dot ' + type;
-  txt.textContent = text;
+function renderAcompCharts(nomes,corte,linhasTab){
+  const mapD={};
+  nomes.forEach(nome=>{
+    parsearLinhas(acompData[nome]||[]).filter(l=>{if(!corte) return true;const d=parseData(l.data);return d&&d>=corte;}).forEach(l=>{
+      const k=l.data;if(!k) return;
+      if(!mapD[k]) mapD[k]={r:0,v:0};mapD[k].r+=l.recebidos;mapD[k].v+=l.vendas;
+    });
+  });
+  const dias=Object.keys(mapD).sort();
+  if(charts.acomp) charts.acomp.destroy();
+  charts.acomp=new Chart(document.getElementById('acompChart'),{type:'bar',data:{labels:dias,datasets:[{label:'Recebidos',data:dias.map(d=>mapD[d].r),backgroundColor:'rgba(24,95,165,0.7)',borderRadius:3},{label:'Vendas',data:dias.map(d=>mapD[d].v),backgroundColor:'rgba(29,158,117,0.85)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:12}}},scales:{y:{beginAtZero:true,ticks:{font:{size:11}},grid:{color:'#f0f1f3'}},x:{ticks:{font:{size:10},maxTicksLimit:12},grid:{display:false}}}}});
+
+  const gs=linhasTab.sort((a,b)=>a.gap-b.gap);
+  if(charts.gap) charts.gap.destroy();
+  charts.gap=new Chart(document.getElementById('gapChart'),{type:'bar',data:{labels:gs.map(d=>d.nome.split(' ')[0]),datasets:[{data:gs.map(d=>d.gap),backgroundColor:gs.map(d=>d.gap>=0?'#1D9E75':'#E24B4A'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{font:{size:11}},grid:{color:'#f0f1f3'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
 }
 
-// Parser CSV robusto
-function parsearCSV(csv) {
-  const resultado = [];
-  let linha = [], campo = '', aspas = false;
-  for (let i = 0; i < csv.length; i++) {
-    const c = csv[i], prox = csv[i+1];
-    if (c === '"') {
-      if (aspas && prox === '"') { campo += '"'; i++; }
-      else aspas = !aspas;
-    } else if (c === ',' && !aspas) {
-      linha.push(campo); campo = '';
-    } else if ((c === '\n' || (c === '\r' && prox === '\n')) && !aspas) {
-      if (c === '\r') i++;
-      linha.push(campo); resultado.push(linha); linha = []; campo = '';
-    } else campo += c;
-  }
-  if (campo || linha.length) { linha.push(campo); resultado.push(linha); }
-  return resultado.filter(l => l.some(c => (c||'').trim() !== ''));
+// ── MANUAL ───────────────────────────────────────────────────
+function buildManualGrid(){
+  const vends=vendedoresAcomp;
+  if(!vends.length){document.getElementById('manualGrid').innerHTML='<p style="font-size:13px;color:var(--muted)">Aguardando carregamento dos vendedores...</p>';return;}
+  document.getElementById('manualGrid').innerHTML=vends.map(v=>{
+    const k=v.replace(/[^a-zA-Z0-9]/g,'_');
+    return `<div class="manual-field">
+      <label>${v}</label>
+      <div class="manual-inputs">
+        <div style="flex:1"><input type="number" min="0" placeholder="0" id="mv_${k}" value="${manualData[v]?.vidas||''}"><div class="ph">Vidas</div></div>
+        <div style="flex:1"><input type="number" min="0" placeholder="0" id="ml_${k}" value="${manualData[v]?.ligacoes||''}"><div class="ph">Ligações</div></div>
+      </div>
+    </div>`;}).join('');
 }
 
-// Inicia
-carregarDados();
+function salvarManual(){
+  vendedoresAcomp.forEach(v=>{
+    const k=v.replace(/[^a-zA-Z0-9]/g,'_');
+    const vi=parseFloat(document.getElementById('mv_'+k)?.value)||0;
+    const li=parseFloat(document.getElementById('ml_'+k)?.value)||0;
+    manualData[v]={vidas:vi,ligacoes:li};
+  });
+  try{localStorage.setItem('salute_manual',JSON.stringify(manualData));}catch(e){}
+  const t=document.getElementById('savedTag');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);
+  renderAcomp();
+}
+
+function carregarManual(){
+  try{const s=localStorage.getItem('salute_manual');if(s) manualData=JSON.parse(s);}catch(e){}
+}
+
+carregarTudo();
 </script>
 </body>
 </html>
