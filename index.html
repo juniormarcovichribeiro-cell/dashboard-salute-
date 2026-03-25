@@ -278,11 +278,15 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
 const CRM_ID='11kR5ru6AzOO7INRYsj22xw8ONfXWVEKeCUcFxtUuPss';
 const CRM_GID='1498535428';
 const ACOMP_ID='1YVteuY9nSa5-hUcqppe9lAbZqzHja9FuI9QfoINUY8g';
+// Clube Vida — mesma planilha, aba ClubVida_Vendas
+// Colunas: Data(0), Representante(1), VendedorSalute(2), Contratos(3), Inclusoes(4), Vendas(5), Vidas(6)
+const CV_GID_NOME = 'ClubVida_Vendas';
 const COLS={TIPO:0,ATENDENTE:15,FILA:11,MOTIVO:19,ETIQUETAS:6,DATA_FILA:12,DATA_ATRIB:13,PRIMEIRA_RESP:16};
 const TIPOS_LEAD=['Receptivo','Transferido'];
 let tiposSel=new Set(['Receptivo','Transferido']);
 
 let crmData=[],acompRaw={},vendedoresAcomp=[],charts={},etiqSel=new Set(),manualData={},todasEtiq=[];
+let cvData=[]; // Clube Vida
 
 // ── HELPERS ──────────────────────────────────────────────────
 const isVenda=r=>(r[COLS.MOTIVO]||'').trim()==='✅ Venda Realizada';
@@ -372,6 +376,26 @@ async function carregarTudo(){
   setStatus('loading','Carregando...');
   await Promise.all([carregarCRM(),carregarAcomp()]);
   setStatus('ok','Atualizado: '+new Date().toLocaleTimeString('pt-BR'));
+}
+
+async function carregarClubVida(){
+  try{
+    // Busca a aba ClubVida_Vendas pelo nome via export — precisa do GID numérico
+    // Como não temos o GID fixo, buscamos pelo feed de abas
+    const metaUrl=`https://docs.google.com/spreadsheets/d/${CRM_ID}/feeds/worksheets/default/public/basic?alt=json`;
+    const mr=await fetch(metaUrl);
+    if(!mr.ok) return;
+    const mj=await mr.json();
+    const aba=(mj.feed.entry||[]).find(e=>e.title.$t===CV_GID_NOME);
+    if(!aba){Logger.log&&Logger.log('Aba ClubVida_Vendas não encontrada');return;}
+    const gid=aba.id.$t.match(/\/([^/]+)$/)?.[1];
+    if(!gid) return;
+    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${gid}`);
+    if(!res.ok) return;
+    const rows=parsearCSV(await res.text());
+    cvData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
+    console.log('Clube Vida: '+cvData.length+' registros carregados');
+  }catch(e){console.warn('Clube Vida erro:',e);}
 }
 
 async function carregarCRM(){
@@ -630,12 +654,23 @@ function renderAcomp(){
   crmData.filter(isAberto).forEach(r=>{const v=r[COLS.ATENDENTE];if(v) abertosMap[v]=(abertosMap[v]||0)+1;});
   const totAbertos=Object.values(abertosMap).reduce((a,b)=>a+b,0);
 
+  // Clube Vida — agrega por vendedor (col 2=VendedorSalute, 5=Vendas, 6=Vidas)
+  const cvMap={};
+  cvData.forEach(r=>{
+    const vend=(r[2]||'').trim();if(!vend) return;
+    if(!cvMap[vend]) cvMap[vend]={vendas:0,vidas:0};
+    cvMap[vend].vendas+=parseFloat(r[5])||0;
+    cvMap[vend].vidas+=parseFloat(r[6])||0;
+  });
+  const totCVVendas=Object.values(cvMap).reduce((s,v)=>s+v.vendas,0);
+  const totCVVidas=Object.values(cvMap).reduce((s,v)=>s+v.vidas,0);
+
   document.getElementById('metricsAcomp').innerHTML=`
     <div class="metric"><div class="metric-label">Leads recebidos</div><div class="metric-value">${totR.toLocaleString('pt-BR')}</div><div class="metric-sub">Dias ${diaIni}–${diaFim}</div></div>
     <div class="metric"><div class="metric-label">Descartados</div><div class="metric-value">${totD.toLocaleString('pt-BR')}</div><div class="metric-sub">${totR>0?(totD/totR*100).toFixed(1):0}% dos recebidos</div></div>
-    <div class="metric"><div class="metric-label">Vendas realizadas</div><div class="metric-value">${totV.toLocaleString('pt-BR')}</div><span class="mbadge ${cbc}">Conv. ${convTot}%</span></div>
+    <div class="metric"><div class="metric-label">Vendas (Clube Vida)</div><div class="metric-value">${totCVVendas.toLocaleString('pt-BR')}</div><span class="mbadge ${cbc}">Conv. ${totR>0?(totCVVendas/totR*100).toFixed(1):0}%</span></div>
+    <div class="metric"><div class="metric-label" style="color:var(--green);font-weight:600">⭐ Vidas (norte estrela)</div><div class="metric-value" style="color:var(--green)">${totCVVidas.toLocaleString('pt-BR')}</div><div class="metric-sub">Clube Vida</div></div>
     <div class="metric"><div class="metric-label">Meta do período</div><div class="metric-value">${totMeta.toLocaleString('pt-BR')}</div><span class="mbadge ${gbc}">GAP: ${gapTot>=0?'+':''}${gapTot}</span></div>
-    <div class="metric"><div class="metric-label">Vidas vendidas</div><div class="metric-value">${totVi.toLocaleString('pt-BR')}</div><div class="metric-sub">Clube Vida</div></div>
     <div class="metric"><div class="metric-label">Ligações</div><div class="metric-value">${totL.toLocaleString('pt-BR')}</div><div class="metric-sub">Total do time</div></div>
     <div class="metric"><div class="metric-label">Leads em aberto</div><div class="metric-value" style="color:var(--amber)">${totAbertos.toLocaleString('pt-BR')}</div><div class="metric-sub">Sem finalização (CRM)</div></div>`;
 
@@ -647,7 +682,7 @@ function renderAcomp(){
   });
   const gtc=gapTot>=0?'gap-pos':gapTot<-2?'gap-neg':'gap-zero';
   trows.push(`<tr class="total-row"><td>TOTAL TIME</td><td>${totR}</td><td>${totD}</td><td>${totV}</td><td>${totMeta}</td><td class="${gtc}">${gapTot>=0?'+':''}${gapTot}</td><td>${convTot}%</td><td>${totVi}</td><td>${totL}</td><td style="color:var(--amber);font-weight:500">${totAbertos}</td></tr>`);
-  document.getElementById('acompTable').innerHTML=`<thead><tr><th>Vendedor</th><th>Leads Rec.</th><th>Descart.</th><th>Vendas</th><th>Meta</th><th>GAP</th><th>Conv.</th><th>Vidas</th><th>Ligações</th><th>Abertos</th></tr></thead><tbody>${trows.join('')}</tbody>`;
+  document.getElementById('acompTable').innerHTML=`<thead><tr><th>Vendedor</th><th>Leads Rec.</th><th>Descart.</th><th>Vendas CV</th><th>Vidas CV</th><th>Meta</th><th>GAP</th><th>Conv.</th><th>Ligações</th><th>Abertos</th></tr></thead><tbody>${trows.join('')}</tbody>`;
 
   renderAcompCharts(nomes,diaIni,diaFim,linhasTab,abertosMap);
 }
