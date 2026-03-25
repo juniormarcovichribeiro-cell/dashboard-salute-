@@ -147,6 +147,18 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
         <input type="date" id="dateTo" onchange="renderCRM()">
       </div>
     </div>
+    <div class="fg"><div class="fl">Tipo de atendimento</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px" id="tipoButtons">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--green-bg);color:var(--green);font-weight:500">
+          <input type="checkbox" value="Receptivo" checked onchange="toggleTipo(this)" style="accent-color:var(--green)"> Receptivo</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--blue-bg);color:var(--blue);font-weight:500">
+          <input type="checkbox" value="Transferido" checked onchange="toggleTipo(this)" style="accent-color:var(--blue)"> Transferido</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--bg);color:var(--muted)">
+          <input type="checkbox" value="Ativo - Disparo" onchange="toggleTipo(this)"> Ativo Disparo</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--bg);color:var(--muted)">
+          <input type="checkbox" value="Ativo - Atendente" onchange="toggleTipo(this)"> Ativo Atendente</label>
+      </div>
+    </div>
     <div class="fg"><div class="fl">Etiquetas</div>
       <div class="etiq-wrap" id="etiqWrap">
         <button class="etiq-btn" onclick="toggleEtiq()">
@@ -266,13 +278,15 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
 const CRM_ID='11kR5ru6AzOO7INRYsj22xw8ONfXWVEKeCUcFxtUuPss';
 const CRM_GID='1498535428';
 const ACOMP_ID='1YVteuY9nSa5-hUcqppe9lAbZqzHja9FuI9QfoINUY8g';
-const COLS={ATENDENTE:15,FILA:11,MOTIVO:19,ETIQUETAS:6,DATA_ATRIB:13,PRIMEIRA_RESP:16};
+const COLS={TIPO:0,ATENDENTE:15,FILA:11,MOTIVO:19,ETIQUETAS:6,DATA_FILA:12,DATA_ATRIB:13,PRIMEIRA_RESP:16};
+const TIPOS_LEAD=['Receptivo','Transferido'];
+let tiposSel=new Set(['Receptivo','Transferido']);
 
 let crmData=[],acompRaw={},vendedoresAcomp=[],charts={},etiqSel=new Set(),manualData={},todasEtiq=[];
 
 // ── HELPERS ──────────────────────────────────────────────────
-const isVenda=r=>(r[COLS.MOTIVO]||'').toLowerCase().includes('venda realizada');
-const isAberto=r=>{const m=(r[COLS.MOTIVO]||'').trim();return m===''||m==='N/A'||m==='nan';};
+const isVenda=r=>(r[COLS.MOTIVO]||'').trim()==='✅ Venda Realizada';
+const isAberto=r=>{const m=(r[COLS.MOTIVO]||'').trim(),tp=(r[COLS.TIPO]||'').trim();return TIPOS_LEAD.includes(tp)&&(m===''||m==='N/A'||m==='nan');};
 
 function parseData(s){
   if(!s) return null;
@@ -425,12 +439,27 @@ async function carregarAcomp(){
 }
 
 // ── RENDER CRM ───────────────────────────────────────────────
+function toggleTipo(cb){
+  if(cb.checked) tiposSel.add(cb.value); else tiposSel.delete(cb.value);
+  // Atualiza visual do label
+  const label=cb.closest('label');
+  if(cb.checked){
+    const cores={'Receptivo':'var(--green-bg)/var(--green)','Transferido':'var(--blue-bg)/var(--blue)'};
+    const c=cores[cb.value]||'var(--amber-bg)/var(--amber)';
+    label.style.background=c.split('/')[0];label.style.color=c.split('/')[1];label.style.fontWeight='500';
+  } else {label.style.background='var(--bg)';label.style.color='var(--muted)';label.style.fontWeight='400';}
+  renderCRM();
+}
+
 function getFiltCRM(){
   const vend=document.getElementById('fVend').value;
   const {from,to}=getCorte();
   return crmData.filter(r=>{
+    // Filtro por tipo de atendimento
+    if(tiposSel.size>0&&!tiposSel.has((r[COLS.TIPO]||'').trim())) return false;
     if(vend&&r[COLS.ATENDENTE]!==vend) return false;
-    const d=parseData(r[COLS.DATA_ATRIB]);
+    // Usa a melhor data disponível para filtrar período (menos nulos)
+    const d=parseData(r[COLS.DATA_FILA])||parseData(r[COLS.DATA_ATRIB])||parseData(r[COLS.PRIMEIRA_RESP]);
     if(from&&d&&d<from) return false;
     if(to&&d&&d>to) return false;
     if(etiqSel.size>0){
@@ -449,7 +478,7 @@ function renderCRM(){
 function calcLRT(data){
   const t=[];
   data.forEach(r=>{
-    const a=parseDT(r[COLS.DATA_ATRIB]),b=parseDT(r[COLS.PRIMEIRA_RESP]);
+    const a=parseDT(r[COLS.DATA_ATRIB]),b=parseDT(r[COLS.PRIMEIRA_RESP]); // LRT: atribuição → primeira resposta
     if(!a||!b) return;const d=(b-a)/60000;if(d>=0&&d<1440) t.push(d);
   });
   return t.length?t.reduce((a,b)=>a+b,0)/t.length:null;
@@ -521,7 +550,7 @@ function renderLRTChart(data){
   const map={};
   data.forEach(r=>{
     const v=r[COLS.ATENDENTE];if(!v) return;
-    const a=parseDT(r[COLS.DATA_ATRIB]),b=parseDT(r[COLS.PRIMEIRA_RESP]);
+    const a=parseDT(r[COLS.DATA_ATRIB]),b=parseDT(r[COLS.PRIMEIRA_RESP]); // LRT: atribuição → primeira resposta
     if(!a||!b) return;const d=(b-a)/60000;if(d<0||d>=1440) return;
     if(!map[v]) map[v]=[];map[v].push(d);
   });
