@@ -132,9 +132,10 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
       <select id="fVend" onchange="renderCRM()"><option value="">Todos</option></select></div>
     <div class="fg"><div class="fl">Período</div>
       <select id="fPer" onchange="onPeriodoChange()">
+        <option value="hoje" selected>Hoje</option>
         <option value="7">Últimos 7 dias</option>
         <option value="15">Últimos 15 dias</option>
-        <option value="30" selected>Últimos 30 dias</option>
+        <option value="30">Últimos 30 dias</option>
         <option value="mes">Mês atual</option>
         <option value="0">Todo período</option>
         <option value="custom">Período personalizado</option>
@@ -286,10 +287,11 @@ const TIPOS_LEAD=['Receptivo','Transferido'];
 let tiposSel=new Set(['Receptivo','Transferido']);
 
 let crmData=[],acompRaw={},vendedoresAcomp=[],charts={},etiqSel=new Set(),manualData={},todasEtiq=[];
-let cvData=[]; // Clube Vida
+let cvData=[],cvMap={}; // Clube Vida
 
 // ── HELPERS ──────────────────────────────────────────────────
 const isVenda=r=>(r[COLS.MOTIVO]||'').trim()==='✅ Venda Realizada';
+const isDescartado=r=>(r[COLS.MOTIVO]||'').trim().startsWith('❌');
 const isAberto=r=>{const m=(r[COLS.MOTIVO]||'').trim(),tp=(r[COLS.TIPO]||'').trim();return TIPOS_LEAD.includes(tp)&&(m===''||m==='N/A'||m==='nan');};
 
 function parseData(s){
@@ -348,6 +350,12 @@ function getCorte(){
     const to=document.getElementById('dateTo').value;
     return {from:from?new Date(from+'T00:00:00'):null,to:to?new Date(to+'T23:59:59'):null};
   }
+  if(v==='hoje'){
+    const now=new Date();
+    const ini=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
+    const fim=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
+    return{from:ini,to:fim};
+  }
   if(v==='mes'){const now=new Date();return{from:new Date(now.getFullYear(),now.getMonth(),1),to:null};}
   if(v==='0') return{from:null,to:null};
   return{from:new Date(Date.now()-parseInt(v)*86400000),to:null};
@@ -386,7 +394,16 @@ async function carregarClubVida(){
     if(!res.ok){console.warn('Clube Vida HTTP '+res.status);return;}
     const rows=parsearCSV(await res.text());
     cvData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
-    console.log('Clube Vida: '+cvData.length+' registros carregados');
+    // Reconstrói cvMap global: vendedor → {vendas, vidas} acumulado de hoje
+    cvMap={};
+    const hoje=new Date().toLocaleDateString('pt-BR');
+    cvData.filter(r=>(r[0]||'')===hoje).forEach(r=>{
+      const v=(r[1]||'').trim();if(!v) return;
+      if(!cvMap[v]) cvMap[v]={vendas:0,vidas:0};
+      cvMap[v].vendas+=parseFloat(r[4])||0;
+      cvMap[v].vidas+=parseFloat(r[5])||0;
+    });
+    console.log('Clube Vida: '+cvData.length+' registros | cvMap: '+Object.keys(cvMap).length+' vendedores hoje');
   }catch(e){console.warn('Clube Vida erro:',e);}
 }
 
@@ -503,15 +520,17 @@ function calcLRT(data){
 function renderMetricsCRM(data){
   const total=data.length,vendas=data.filter(isVenda).length;
   const abertos=data.filter(isAberto).length;
-  const perd=data.filter(r=>(r[COLS.MOTIVO]||'').includes('Falta de Comunicação')||(r[COLS.MOTIVO]||'').includes('Negociação Abandonada')).length;
-  const conv=total>0?(vendas/total*100).toFixed(1):0;
+  const descartados=data.filter(isDescartado).length;
   const vativos=new Set(data.map(r=>r[COLS.ATENDENTE]).filter(Boolean)).size;
-  const bc=conv>=20?'bg-green':conv>=10?'bg-amber':'bg-red';
+  // Conversão principal = vidas CV / total leads
+  const totalVidasCV=Object.values(cvMap).reduce((s,v)=>s+v.vidas,0);
+  const convCV=total>0?(totalVidasCV/total*100).toFixed(1):0;
+  const bc=convCV>=20?'bg-green':convCV>=10?'bg-amber':'bg-red';
   document.getElementById('metricsGrid').innerHTML=`
-    <div class="metric"><div class="metric-label">Atendimentos</div><div class="metric-value">${total.toLocaleString('pt-BR')}</div><div class="metric-sub">${vativos} vendedores ativos</div></div>
-    <div class="metric"><div class="metric-label">Vendas realizadas</div><div class="metric-value">${vendas.toLocaleString('pt-BR')}</div><span class="mbadge ${bc}">Conv. ${conv}%</span></div>
+    <div class="metric"><div class="metric-label">Leads recebidos</div><div class="metric-value">${total.toLocaleString('pt-BR')}</div><div class="metric-sub">${vativos} vendedores ativos</div></div>
+    <div class="metric"><div class="metric-label" style="color:var(--green);font-weight:600">⭐ Vidas (Clube Vida)</div><div class="metric-value" style="color:var(--green)">${totalVidasCV.toLocaleString('pt-BR')}</div><span class="mbadge ${bc}">Conv. ${convCV}%</span></div>
+    <div class="metric"><div class="metric-label">Descartados</div><div class="metric-value" style="color:var(--red)">${descartados.toLocaleString('pt-BR')}</div><div class="metric-sub">${total>0?(descartados/total*100).toFixed(1):0}% do total</div></div>
     <div class="metric"><div class="metric-label">Leads em aberto</div><div class="metric-value" style="color:var(--amber)">${abertos.toLocaleString('pt-BR')}</div><div class="metric-sub">${total>0?(abertos/total*100).toFixed(1):0}% sem finalização</div></div>
-    <div class="metric"><div class="metric-label">Negócios perdidos</div><div class="metric-value">${perd.toLocaleString('pt-BR')}</div><div class="metric-sub">${total>0?(perd/total*100).toFixed(1):0}% do total</div></div>
     <div class="metric"><div class="metric-label">LRT médio</div><div class="metric-value" style="font-size:20px">${fmtMin(calcLRT(data))}</div><div class="metric-sub">Lead response time</div></div>`;
   document.getElementById('lrtGeral').textContent=fmtMin(calcLRT(data));
 }
@@ -538,7 +557,7 @@ function renderRanking(data){
       <td style="font-size:12px;color:var(--green);font-weight:500">${s.vendas}</td>
       <td style="font-size:12px;color:var(--amber);font-weight:500">${s.abertos}</td></tr>`;
   }).join('');
-  document.getElementById('rankingTable').innerHTML=`<thead><tr><th>#</th><th>Vendedor</th><th>Atendimentos</th><th>Conv.</th><th>Vendas</th><th>Abertos</th></tr></thead><tbody>${rows}</tbody>`;
+  document.getElementById('rankingTable').innerHTML=`<thead><tr><th>#</th><th>Vendedor</th><th>Atendimentos</th><th>Vidas CV</th><th>Conv.%</th><th>Descartados</th><th>Abertos</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 function renderMotivos(data){
@@ -646,13 +665,13 @@ function renderAcomp(){
   crmData.filter(isAberto).forEach(r=>{const v=r[COLS.ATENDENTE];if(v) abertosMap[v]=(abertosMap[v]||0)+1;});
   const totAbertos=Object.values(abertosMap).reduce((a,b)=>a+b,0);
 
-  // Clube Vida — agrega por vendedor (col 2=VendedorSalute, 5=Vendas, 6=Vidas)
+  // Clube Vida — col: Data(0),Vendedor(1),Contratos(2),Inclusoes(3),Vendas(4),Vidas(5)
   const cvMap={};
   cvData.forEach(r=>{
-    const vend=(r[2]||'').trim();if(!vend) return;
+    const vend=(r[1]||'').trim();if(!vend) return;
     if(!cvMap[vend]) cvMap[vend]={vendas:0,vidas:0};
-    cvMap[vend].vendas+=parseFloat(r[5])||0;
-    cvMap[vend].vidas+=parseFloat(r[6])||0;
+    cvMap[vend].vendas+=parseFloat(r[4])||0;
+    cvMap[vend].vidas+=parseFloat(r[5])||0;
   });
   const totCVVendas=Object.values(cvMap).reduce((s,v)=>s+v.vendas,0);
   const totCVVidas=Object.values(cvMap).reduce((s,v)=>s+v.vidas,0);
