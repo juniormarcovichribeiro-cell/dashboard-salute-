@@ -295,20 +295,20 @@ const isDescartado=r=>{const m=(r[COLS.MOTIVO]||'').trim();return m.startsWith('
 const isAberto=r=>{const m=(r[COLS.MOTIVO]||'').trim(),tp=(r[COLS.TIPO]||'').trim();return TIPOS_LEAD.includes(tp)&&(m===''||m==='N/A'||m==='nan');};
 
 function parseData(s){
-  if(!s) return null;
-  // Trata formato "dd/mm/yyyy hh:mm:ss" ou "dd/mm/yyyy hh:mm"
-  const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if(!s||s==='N/A'||s==='nan') return null;
+  // Formato "dd/mm/yyyy hh:mm:ss" ou "dd/mm/yyyy hh:mm" ou "dd/mm/yyyy"
+  const m=String(s).match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
   if(m){
-    const h=parseInt(m[4]||0),min=parseInt(m[5]||0),sec=parseInt(m[6]||0);
+    const h=parseInt(m[4]||'0'),min=parseInt(m[5]||'0'),sec=parseInt(m[6]||'0');
     return new Date(+m[3],+m[2]-1,+m[1],h,min,sec);
   }
-  const d=new Date(s);return isNaN(d)?null:d;
+  return null; // Não usa new Date(s) para evitar interpretação UTC errada
 }
 function parseDT(s){
-  if(!s) return null;
-  const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
-  if(m) return new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5]);
-  const d=new Date(s);return isNaN(d)?null:d;
+  if(!s||s==='N/A'||s==='nan') return null;
+  const m=String(s).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5],parseInt(m[6]||'0'));
+  return null;
 }
 function fmtMin(m){
   if(m===null||isNaN(m)) return '—';
@@ -492,7 +492,8 @@ function toggleTipo(cb){
 function getFiltCRM(){
   const vend=document.getElementById('fVend').value;
   const {from,to}=getCorte();
-  return crmData.filter(r=>{
+  const per=document.getElementById('fPer').value;
+  const resultado=crmData.filter(r=>{
     // Filtro por tipo de atendimento
     if(tiposSel.size>0&&!tiposSel.has((r[COLS.TIPO]||'').trim())) return false;
     if(vend&&r[COLS.ATENDENTE]!==vend) return false;
@@ -508,6 +509,19 @@ function getFiltCRM(){
     }
     return true;
   });
+  // Log de diagnóstico
+  if(per==='hoje'){
+    const hoje=new Date();
+    console.log('=== FILTRO HOJE ===');
+    console.log('De:', from?.toLocaleString('pt-BR'), 'Até:', to?.toLocaleString('pt-BR'));
+    console.log('Total CRM bruto:', crmData.length);
+    console.log('Após filtro tipo:', crmData.filter(r=>tiposSel.size===0||tiposSel.has((r[COLS.TIPO]||'').trim())).length);
+    // Amostra das datas que estão passando
+    const amostra=resultado.slice(0,3).map(r=>r[COLS.DATA_FILA]||r[COLS.DATA_ATRIB]);
+    console.log('Amostra datas filtradas:', amostra);
+    console.log('Total após filtro:', resultado.length);
+  }
+  return resultado;
 }
 
 function renderCRM(){
