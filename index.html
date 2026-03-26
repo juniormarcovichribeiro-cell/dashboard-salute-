@@ -291,13 +291,17 @@ let cvData=[],cvMap={}; // Clube Vida
 
 // ── HELPERS ──────────────────────────────────────────────────
 const isVenda=r=>(r[COLS.MOTIVO]||'').trim()==='✅ Venda Realizada';
-const isDescartado=r=>(r[COLS.MOTIVO]||'').trim().startsWith('❌');
+const isDescartado=r=>{const m=(r[COLS.MOTIVO]||'').trim();return m.startsWith('❌')||m.startsWith('❌');};
 const isAberto=r=>{const m=(r[COLS.MOTIVO]||'').trim(),tp=(r[COLS.TIPO]||'').trim();return TIPOS_LEAD.includes(tp)&&(m===''||m==='N/A'||m==='nan');};
 
 function parseData(s){
   if(!s) return null;
-  const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  // Trata formato "dd/mm/yyyy hh:mm:ss" ou "dd/mm/yyyy hh:mm"
+  const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){
+    const h=parseInt(m[4]||0),min=parseInt(m[5]||0),sec=parseInt(m[6]||0);
+    return new Date(+m[3],+m[2]-1,+m[1],h,min,sec);
+  }
   const d=new Date(s);return isNaN(d)?null:d;
 }
 function parseDT(s){
@@ -352,8 +356,9 @@ function getCorte(){
   }
   if(v==='hoje'){
     const now=new Date();
-    const ini=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
-    const fim=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
+    // Usa meia-noite local como início do dia
+    const ini=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0,0);
+    const fim=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59,999);
     return{from:ini,to:fim};
   }
   if(v==='mes'){const now=new Date();return{from:new Date(now.getFullYear(),now.getMonth(),1),to:null};}
@@ -491,8 +496,10 @@ function getFiltCRM(){
     // Filtro por tipo de atendimento
     if(tiposSel.size>0&&!tiposSel.has((r[COLS.TIPO]||'').trim())) return false;
     if(vend&&r[COLS.ATENDENTE]!==vend) return false;
-    // Usa a melhor data disponível para filtrar período (menos nulos)
-    const d=parseData(r[COLS.DATA_FILA])||parseData(r[COLS.DATA_ATRIB])||parseData(r[COLS.PRIMEIRA_RESP]);
+    // Data do lead = quando chegou na fila (mais confiável)
+    // Fallback para DATA_ATRIB se DATA_FILA nulo
+    // NÃO usa PRIMEIRA_RESP — pode ser de outro dia
+    const d=parseData(r[COLS.DATA_FILA])||parseData(r[COLS.DATA_ATRIB]);
     if(from&&d&&d<from) return false;
     if(to&&d&&d>to) return false;
     if(etiqSel.size>0){
