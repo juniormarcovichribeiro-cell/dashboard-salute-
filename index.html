@@ -282,7 +282,7 @@ const ACOMP_ID='1YVteuY9nSa5-hUcqppe9lAbZqzHja9FuI9QfoINUY8g';
 // Clube Vida — mesma planilha, aba ClubVida_Vendas
 // Colunas: Data(0), Representante(1), VendedorSalute(2), Contratos(3), Inclusoes(4), Vendas(5), Vidas(6)
 const CV_GID_NOME = 'ClubVida_Vendas';
-const COLS={TIPO:0,ATENDENTE:15,FILA:11,MOTIVO:19,ETIQUETAS:6,DATA_FILA:12,DATA_ATRIB:13,PRIMEIRA_RESP:16};
+const COLS={TIPO:0,ATENDENTE:15,FILA:11,MOTIVO:19,ETIQUETAS:6,DATA_LEAD:7,DATA_FILA:12,DATA_ATRIB:13,PRIMEIRA_RESP:16};
 const TIPOS_LEAD=['Receptivo','Transferido'];
 let tiposSel=new Set(['Receptivo','Transferido']);
 
@@ -497,10 +497,10 @@ function getFiltCRM(){
     // Filtro por tipo de atendimento
     if(tiposSel.size>0&&!tiposSel.has((r[COLS.TIPO]||'').trim())) return false;
     if(vend&&r[COLS.ATENDENTE]!==vend) return false;
-    // Data do lead = quando chegou na fila (mais confiável)
-    // Fallback para DATA_ATRIB se DATA_FILA nulo
-    // NÃO usa PRIMEIRA_RESP — pode ser de outro dia
-    const d=parseData(r[COLS.DATA_FILA])||parseData(r[COLS.DATA_ATRIB]);
+    // Data do lead = quando chegou ao sistema (col H = 1ª Mensagem Cliente para IA/BOT)
+    // Fallback para DATA_FILA (col M) e DATA_ATRIB (col N)
+    // Para Ativos que não passam pela IA, usa DATA_FILA
+    const d=parseData(r[COLS.DATA_LEAD])||parseData(r[COLS.DATA_FILA])||parseData(r[COLS.DATA_ATRIB]);
     if(from&&d&&d<from) return false;
     if(to&&d&&d>to) return false;
     if(etiqSel.size>0){
@@ -517,7 +517,7 @@ function getFiltCRM(){
     console.log('Total CRM bruto:', crmData.length);
     console.log('Após filtro tipo:', crmData.filter(r=>tiposSel.size===0||tiposSel.has((r[COLS.TIPO]||'').trim())).length);
     // Amostra das datas que estão passando
-    const amostra=resultado.slice(0,3).map(r=>r[COLS.DATA_FILA]||r[COLS.DATA_ATRIB]);
+    const amostra=resultado.slice(0,3).map(r=>r[COLS.DATA_LEAD]||r[COLS.DATA_FILA]||r[COLS.DATA_ATRIB]);
     console.log('Amostra datas filtradas:', amostra);
     console.log('Total após filtro:', resultado.length);
   }
