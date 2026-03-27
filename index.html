@@ -590,8 +590,24 @@ function renderRanking(data){
   const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total).slice(0,15);
   const max=sorted[0]?.[1]?.total||1;
   const rows=sorted.map(([v,s],i)=>{
-    // Vidas do Clube Vida para este vendedor
-    const vidasCV=(cvMap&&cvMap[v])?cvMap[v].vidas:0;
+    // Vidas do Clube Vida — busca por match exato ou parcial
+    const vidasCV=(()=>{
+      if(!cvMap) return 0;
+      // Match exato
+      if(cvMap[v]) return cvMap[v].vidas;
+      // Match parcial: nome do CRM contém parte do nome do CV ou vice-versa
+      const vUp=v.toUpperCase();
+      for(const [cvNome,cvStats] of Object.entries(cvMap)){
+        const cvUp=cvNome.toUpperCase();
+        // Verifica se o primeiro nome bate
+        const primeiroNomeCRM=vUp.split(' ')[0];
+        const primeiroNomeCV=cvUp.split(' ')[0];
+        if(primeiroNomeCRM===primeiroNomeCV) return cvStats.vidas;
+        // Verifica se CV está contido no nome do CRM
+        if(vUp.includes(cvUp)||cvUp.includes(vUp.split(' ')[0])) return cvStats.vidas;
+      }
+      return 0;
+    })();
     // Conversão = Vidas CV / Total atendimentos
     const conv=s.total>0?(vidasCV/s.total*100).toFixed(1):0;
     const bc=parseFloat(conv)>=20?'bg-green':parseFloat(conv)>=10?'bg-amber':'bg-red';
