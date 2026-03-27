@@ -387,7 +387,7 @@ function toggleEtiqItem(v,c){if(c) etiqSel.add(v);else etiqSel.delete(v);atualiz
 // ── LOAD ─────────────────────────────────────────────────────
 async function carregarTudo(){
   setStatus('loading','Carregando...');
-  await Promise.all([carregarCRM(),carregarAcomp()]);
+  await Promise.all([carregarCRM(),carregarAcomp(),carregarClubVida()]);
   setStatus('ok','Atualizado: '+new Date().toLocaleTimeString('pt-BR'));
 }
 
