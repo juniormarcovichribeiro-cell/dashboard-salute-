@@ -499,15 +499,16 @@ function getFiltCRM(){
     // Filtro por tipo de atendimento
     if(tiposSel.size>0&&!tiposSel.has((r[COLS.TIPO]||'').trim())) return false;
     if(vend&&r[COLS.ATENDENTE]!==vend) return false;
-    // Conta se QUALQUER UMA das datas estiver no período
-    // Col H = 1ª Mensagem Cliente IA/BOT | Col M = Período Atribuído para Fila
-    const d1=parseData(r[COLS.DATA_LEAD]);   // col H
-    const d2=parseData(r[COLS.DATA_FILA]);   // col M
-    const d3=parseData(r[COLS.DATA_ATRIB]);  // col N (fallback)
-    const dentroD1=d1&&(!from||d1>=from)&&(!to||d1<=to);
-    const dentroD2=d2&&(!from||d2>=from)&&(!to||d2<=to);
-    const dentroD3=!d1&&!d2&&d3&&(!from||d3>=from)&&(!to||d3<=to);
-    if(!dentroD1&&!dentroD2&&!dentroD3) return false;
+    // Data principal: col H (1ª msg IA) se preenchida, senão col M (Atrib Fila)
+    // Leads transferidos: col H = N/A, usa col M como data de criação
+    const d1=parseData(r[COLS.DATA_LEAD]);   // col H — receptivos
+    const d2=parseData(r[COLS.DATA_FILA]);   // col M — todos (principal para transferidos)
+    const d3=parseData(r[COLS.DATA_ATRIB]);  // col N — fallback final
+    // Usa a melhor data disponível: H ou M (a que não for nula)
+    const dPrincipal=d1||d2||d3;
+    if(!dPrincipal) return false;
+    if(from&&dPrincipal<from) return false;
+    if(to&&dPrincipal>to) return false;
     // Deduplicar por protocolo
     const proto=r[2]||'';
     if(proto&&vistos.has(proto)) return false;
@@ -571,23 +572,39 @@ function renderRanking(data){
   const map={};
   data.forEach(r=>{
     const v=r[COLS.ATENDENTE];if(!v) return;
-    if(!map[v]) map[v]={total:0,vendas:0,abertos:0};
-    map[v].total++;if(isVenda(r)) map[v].vendas++;if(isAberto(r)) map[v].abertos++;
+    if(!map[v]) map[v]={total:0,abertos:0,descartados:0};
+    map[v].total++;
+    if(isAberto(r)) map[v].abertos++;
+    if(isDescartado(r)) map[v].descartados++;
   });
   const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total).slice(0,15);
   const max=sorted[0]?.[1]?.total||1;
   const rows=sorted.map(([v,s],i)=>{
-    const c=s.total>0?(s.vendas/s.total*100).toFixed(0):0;
-    const bc=c>=20?'bg-green':c>=10?'bg-amber':'bg-red';
+    // Vidas do Clube Vida para este vendedor
+    const vidasCV=(cvMap&&cvMap[v])?cvMap[v].vidas:0;
+    // Conversão = Vidas CV / Total atendimentos
+    const conv=s.total>0?(vidasCV/s.total*100).toFixed(1):0;
+    const bc=parseFloat(conv)>=20?'bg-green':parseFloat(conv)>=10?'bg-amber':'bg-red';
     const rc=i===0?'rank rank-1':i===1?'rank rank-2':i===2?'rank rank-3':'rank';
-    return `<tr><td><span class="${rc}">${i+1}</span></td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v}</td>
+    return `<tr>
+      <td><span class="${rc}">${i+1}</span></td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v}</td>
       <td><div class="bar-wrap"><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(s.total/max*100)}%;background:var(--blue)"></div></div><span style="font-size:12px;min-width:30px;text-align:right">${s.total}</span></div></td>
-      <td><span class="mbadge ${bc}" style="font-size:11px">${c}%</span></td>
-      <td style="font-size:12px;color:var(--green);font-weight:500">${s.vendas}</td>
-      <td style="font-size:12px;color:var(--amber);font-weight:500">${s.abertos}</td></tr>`;
+      <td style="text-align:center;font-size:14px;font-weight:700;color:var(--green)">${vidasCV}</td>
+      <td style="text-align:center"><span class="mbadge ${bc}" style="font-size:11px">${conv}%</span></td>
+      <td style="text-align:center;font-size:13px;color:var(--red);font-weight:600">${s.descartados}</td>
+      <td style="text-align:center;font-size:13px;color:var(--amber);font-weight:600">${s.abertos}</td>
+    </tr>`;
   }).join('');
-  document.getElementById('rankingTable').innerHTML=`<thead><tr><th>#</th><th>Vendedor</th><th>Atendimentos</th><th>Vidas CV</th><th>Conv.%</th><th>Descartados</th><th>Abertos</th></tr></thead><tbody>${rows}</tbody>`;
+  document.getElementById('rankingTable').innerHTML=`
+    <thead><tr>
+      <th>#</th><th>Vendedor</th><th>Atendimentos</th>
+      <th style="text-align:center">Vidas CV</th>
+      <th style="text-align:center">Conv.%</th>
+      <th style="text-align:center">Descartados</th>
+      <th style="text-align:center">Abertos</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>`;
 }
 
 function renderMotivos(data){
