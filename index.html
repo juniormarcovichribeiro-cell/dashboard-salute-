@@ -394,7 +394,10 @@ async function carregarTudo(){
 async function carregarClubVida(){
   try{
     const CV_GID='1760567408';
-    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
+    const cvUrl=`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`;
+    console.log('CV buscando:', cvUrl);
+    const res=await fetch(cvUrl);
+    console.log('CV status:', res.status);
     if(!res.ok){console.warn('CV HTTP '+res.status);return;}
     const rows=parsearCSV(await res.text());
     cvData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
