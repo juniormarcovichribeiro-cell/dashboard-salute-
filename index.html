@@ -401,13 +401,19 @@ async function carregarClubVida(){
     cvData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
     // Reconstrói cvMap global: vendedor → {vendas, vidas} acumulado de hoje
     cvMap={};
-    const hoje=new Date().toLocaleDateString('pt-BR');
-    cvData.filter(r=>(r[0]||'')===hoje).forEach(r=>{
+    // Formata hoje como dd/MM/yyyy com zeros à esquerda (igual ao robô)
+    const _h=new Date();
+    const hoje=String(_h.getDate()).padStart(2,'0')+'/'+String(_h.getMonth()+1).padStart(2,'0')+'/'+_h.getFullYear();
+    console.log('CV: hoje='+hoje+' | registros='+cvData.length);
+    // Mostra amostra das datas na planilha para debug
+    if(cvData.length>0) console.log('CV: amostra data planilha='+cvData[0][0]);
+    cvData.filter(r=>(r[0]||'').trim()===hoje).forEach(r=>{
       const v=(r[1]||'').trim();if(!v) return;
       if(!cvMap[v]) cvMap[v]={vendas:0,vidas:0};
       cvMap[v].vendas+=parseFloat(r[4])||0;
       cvMap[v].vidas+=parseFloat(r[5])||0;
     });
+    console.log('CV: vendedores no cvMap='+Object.keys(cvMap).length, cvMap);
     console.log('Clube Vida: '+cvData.length+' registros | cvMap: '+Object.keys(cvMap).length+' vendedores hoje');
   }catch(e){console.warn('Clube Vida erro:',e);}
 }
