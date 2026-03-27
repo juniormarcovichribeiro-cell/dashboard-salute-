@@ -393,9 +393,25 @@ async function carregarTudo(){
 
 async function carregarClubVida(){
   try{
-    // GID fixo da aba ClubVida_Vendas
-    const CV_GID='426211509';
-    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
+    // Tenta GID fixo primeiro, com fallback para busca dinâmica
+    let CV_GID='426211509';
+    let res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
+    // Se falhar, tenta buscar pelo feed de abas
+    if(!res.ok){
+      console.warn('CV GID fixo falhou ('+res.status+'), tentando feed...');
+      try{
+        const metaRes=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/feeds/worksheets/default/public/basic?alt=json`);
+        if(metaRes.ok){
+          const meta=await metaRes.json();
+          const aba=(meta.feed.entry||[]).find(e=>e.title.$t==='ClubVida_Vendas');
+          if(aba){
+            const gm=aba.id.$t.match(/\/([^/]+)$/);
+            if(gm){CV_GID=gm[1];console.log('CV novo GID:'+CV_GID);}
+          }
+        }
+      }catch(e2){console.warn('Feed erro:',e2);}
+      res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
+    }
     if(!res.ok){console.warn('Clube Vida HTTP '+res.status);return;}
     const rows=parsearCSV(await res.text());
     cvData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
