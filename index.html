@@ -393,46 +393,31 @@ async function carregarTudo(){
 
 async function carregarClubVida(){
   try{
-    // Tenta GID fixo primeiro, com fallback para busca dinâmica
-    let CV_GID='1760567408';
-    let res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
-    // Se falhar, tenta buscar pelo feed de abas
-    if(!res.ok){
-      console.warn('CV GID fixo falhou ('+res.status+'), tentando feed...');
-      try{
-        const metaRes=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/feeds/worksheets/default/public/basic?alt=json`);
-        if(metaRes.ok){
-          const meta=await metaRes.json();
-          const aba=(meta.feed.entry||[]).find(e=>e.title.$t==='ClubVida_Vendas');
-          if(aba){
-            const gm=aba.id.$t.match(/\/([^/]+)$/);
-            if(gm){CV_GID=gm[1];console.log('CV novo GID:'+CV_GID);}
-          }
-        }
-      }catch(e2){console.warn('Feed erro:',e2);}
-      res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
-    }
-    if(!res.ok){console.warn('Clube Vida HTTP '+res.status);return;}
+    const CV_GID='1760567408';
+    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
+    if(!res.ok){console.warn('CV HTTP '+res.status);return;}
     const rows=parsearCSV(await res.text());
     cvData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
-    // Reconstrói cvMap global: vendedor → {vendas, vidas} acumulado de hoje
+    // cvMap: vendedor → {vendas, vidas} para hoje
+    // Col: Data(0), Vendedor(1), Contratos(2), Inclusoes(3), Vendas(4), Vidas(5)
     cvMap={};
-    // Formata hoje como dd/MM/yyyy com zeros à esquerda (igual ao robô)
     const _h=new Date();
     const hoje=String(_h.getDate()).padStart(2,'0')+'/'+String(_h.getMonth()+1).padStart(2,'0')+'/'+_h.getFullYear();
-    console.log('CV: hoje='+hoje+' | registros='+cvData.length);
-    // Mostra amostra das datas na planilha para debug
-    if(cvData.length>0) console.log('CV: amostra data planilha='+cvData[0][0]);
-    cvData.filter(r=>(r[0]||'').trim()===hoje).forEach(r=>{
+    console.log('CV hoje='+hoje+' | total registros='+cvData.length);
+    if(cvData.length>0) console.log('CV amostra linha 0:', cvData[0]);
+    cvData.forEach(r=>{
+      // Data na col 0 — pode vir como "27/03/2026" sem horário
+      const dataLinha=(r[0]||'').trim().slice(0,10); // pega só os 10 primeiros chars
+      if(dataLinha!==hoje) return;
       const v=(r[1]||'').trim();if(!v) return;
       if(!cvMap[v]) cvMap[v]={vendas:0,vidas:0};
       cvMap[v].vendas+=parseFloat(r[4])||0;
       cvMap[v].vidas+=parseFloat(r[5])||0;
     });
-    console.log('CV: vendedores no cvMap='+Object.keys(cvMap).length, cvMap);
-    console.log('Clube Vida: '+cvData.length+' registros | cvMap: '+Object.keys(cvMap).length+' vendedores hoje');
-  }catch(e){console.warn('Clube Vida erro:',e);}
+    console.log('CV vendedores hoje='+Object.keys(cvMap).length, JSON.stringify(cvMap).slice(0,200));
+  }catch(e){console.error('CV erro:',e);}
 }
+
 
 async function carregarCRM(){
   try{
