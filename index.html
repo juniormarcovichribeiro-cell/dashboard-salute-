@@ -394,7 +394,7 @@ async function carregarTudo(){
 async function carregarClubVida(){
   try{
     // Tenta GID fixo primeiro, com fallback para busca dinâmica
-    let CV_GID='426211509';
+    let CV_GID='1760567408';
     let res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`);
     // Se falhar, tenta buscar pelo feed de abas
     if(!res.ok){
