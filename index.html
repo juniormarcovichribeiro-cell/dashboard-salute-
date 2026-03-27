@@ -493,16 +493,25 @@ function getFiltCRM(){
   const vend=document.getElementById('fVend').value;
   const {from,to}=getCorte();
   const per=document.getElementById('fPer').value;
+  // Usa protocolo (col 2) para deduplicar leads contados por duas colunas
+  const vistos=new Set();
   const resultado=crmData.filter(r=>{
     // Filtro por tipo de atendimento
     if(tiposSel.size>0&&!tiposSel.has((r[COLS.TIPO]||'').trim())) return false;
     if(vend&&r[COLS.ATENDENTE]!==vend) return false;
-    // Data do lead = quando chegou ao sistema (col H = 1ª Mensagem Cliente para IA/BOT)
-    // Fallback para DATA_FILA (col M) e DATA_ATRIB (col N)
-    // Para Ativos que não passam pela IA, usa DATA_FILA
-    const d=parseData(r[COLS.DATA_LEAD])||parseData(r[COLS.DATA_FILA])||parseData(r[COLS.DATA_ATRIB]);
-    if(from&&d&&d<from) return false;
-    if(to&&d&&d>to) return false;
+    // Conta se QUALQUER UMA das datas estiver no período
+    // Col H = 1ª Mensagem Cliente IA/BOT | Col M = Período Atribuído para Fila
+    const d1=parseData(r[COLS.DATA_LEAD]);   // col H
+    const d2=parseData(r[COLS.DATA_FILA]);   // col M
+    const d3=parseData(r[COLS.DATA_ATRIB]);  // col N (fallback)
+    const dentroD1=d1&&(!from||d1>=from)&&(!to||d1<=to);
+    const dentroD2=d2&&(!from||d2>=from)&&(!to||d2<=to);
+    const dentroD3=!d1&&!d2&&d3&&(!from||d3>=from)&&(!to||d3<=to);
+    if(!dentroD1&&!dentroD2&&!dentroD3) return false;
+    // Deduplicar por protocolo
+    const proto=r[2]||'';
+    if(proto&&vistos.has(proto)) return false;
+    if(proto) vistos.add(proto);
     if(etiqSel.size>0){
       const el=(r[COLS.ETIQUETAS]||'').split(';').map(e=>e.trim());
       if(![...etiqSel].every(s=>el.includes(s))) return false;
