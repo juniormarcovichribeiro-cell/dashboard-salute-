@@ -289,6 +289,31 @@ let tiposSel=new Set(['Receptivo','Transferido']);
 let crmData=[],acompRaw={},vendedoresAcomp=[],charts={},etiqSel=new Set(),manualData={},todasEtiq=[];
 let cvData=[],cvMap={}; // Clube Vida
 
+function recalcularCVMap(from, to){
+  cvMap={};
+  // Se não passou período, usa hoje
+  if(!from && !to){
+    const _h=new Date();
+    const hoje=String(_h.getDate()).padStart(2,'0')+'/'+String(_h.getMonth()+1).padStart(2,'0')+'/'+_h.getFullYear();
+    from=new Date(_h.getFullYear(),_h.getMonth(),_h.getDate(),0,0,0);
+    to=new Date(_h.getFullYear(),_h.getMonth(),_h.getDate(),23,59,59);
+  }
+  cvData.forEach(r=>{
+    const v=(r[1]||'').trim();if(!v) return;
+    // Converte data da linha para Date
+    const ds=(r[0]||'').trim().slice(0,10); // dd/MM/yyyy
+    const mp=ds.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if(!mp) return;
+    const dLinha=new Date(+mp[3],+mp[2]-1,+mp[1]);
+    if(from&&dLinha<new Date(from.getFullYear(),from.getMonth(),from.getDate())) return;
+    if(to&&dLinha>new Date(to.getFullYear(),to.getMonth(),to.getDate())) return;
+    if(!cvMap[v]) cvMap[v]={vendas:0,vidas:0};
+    cvMap[v].vendas+=parseFloat(r[4])||0;
+    cvMap[v].vidas+=parseFloat(r[5])||0;
+  });
+  console.log('cvMap recalculado: '+Object.keys(cvMap).length+' vendedores | período:',from?.toLocaleDateString('pt-BR'),'até',to?.toLocaleDateString('pt-BR'));
+}
+
 // ── HELPERS ──────────────────────────────────────────────────
 const isVenda=r=>(r[COLS.MOTIVO]||'').trim()==='✅ Venda Realizada';
 const isDescartado=r=>{const m=(r[COLS.MOTIVO]||'').trim();return m.startsWith('❌')||m.startsWith('❌');};
@@ -545,6 +570,9 @@ function getFiltCRM(){
 }
 
 function renderCRM(){
+  // Recalcula cvMap com o período atual antes de renderizar
+  const {from,to}=getCorte();
+  recalcularCVMap(from,to);
   const d=getFiltCRM();
   renderMetricsCRM(d);renderLRT(d);renderRanking(d);renderMotivos(d);renderConv(d);renderLRTChart(d);renderVol(d);
 }
