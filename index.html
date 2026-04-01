@@ -279,6 +279,8 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
 const CRM_ID='1zo-nHY8EXFNwze__iLkmEU9Q_s28euXQccxFUD4VYN0';
 const CRM_GID='625598088';
 const ACOMP_ID='1YVteuY9nSa5-hUcqppe9lAbZqzHja9FuI9QfoINUY8g';
+// Planilha HORA A HORA — onde ficam ClubVida_Vendas e Vendas_CRM (cópia filtrada)
+const HORA_ID='11kR5ru6AzOO7INRYsj22xw8ONfXWVEKeCUcFxtUuPss';
 // Clube Vida — mesma planilha, aba ClubVida_Vendas
 // Colunas: Data(0), Representante(1), VendedorSalute(2), Contratos(3), Inclusoes(4), Vendas(5), Vidas(6)
 const CV_GID_NOME = 'ClubVida_Vendas';
@@ -419,7 +421,7 @@ async function carregarTudo(){
 async function carregarClubVida(){
   try{
     const CV_GID='1760567408';
-    const cvUrl=`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CV_GID}`;
+    const cvUrl=`https://docs.google.com/spreadsheets/d/${HORA_ID}/export?format=csv&gid=${CV_GID}`;
     console.log('CV buscando:', cvUrl);
     const res=await fetch(cvUrl);
     console.log('CV status:', res.status);
@@ -449,7 +451,7 @@ async function carregarClubVida(){
 
 async function carregarCRM(){
   try{
-    const res=await fetch(`https://docs.google.com/spreadsheets/d/${CRM_ID}/export?format=csv&gid=${CRM_GID}`);
+    const res=await fetch(`https://docs.google.com/spreadsheets/d/${HORA_ID}/export?format=csv&gid=1498535428`);
     if(!res.ok) throw new Error('HTTP '+res.status);
     const rows=parsearCSV(await res.text());
     crmData=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
