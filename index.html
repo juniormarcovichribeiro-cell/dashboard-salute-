@@ -221,54 +221,19 @@ tr:last-child td{border-bottom:none}tr:hover td{background:#f9fafb}
     <div class="last-upd" id="lastUpdAcomp"></div>
 
     <div class="fbar">
-      <div class="fg"><div class="fl">Mês (dia 1-31)</div>
+      <div class="fg"><div class="fl">Mês</div>
         <select id="fAcompMes" onchange="renderAcomp()">
-          <option value="atual">Mês atual</option>
+          <option value="">Carregando...</option>
         </select>
-      </div>
-      <div class="fg"><div class="fl">Dias</div>
-        <div class="date-range">
-          <input type="number" id="fDiaIni" min="1" max="31" value="1" style="width:60px" onchange="renderAcomp()">
-          <span>até</span>
-          <input type="number" id="fDiaFim" min="1" max="31" value="31" style="width:60px" onchange="renderAcomp()">
-        </div>
-      </div>
-      <div class="fg"><div class="fl">Vendedor</div>
-        <select id="fAcompVend" onchange="renderAcomp()"><option value="">Todos</option></select>
       </div>
     </div>
 
     <div class="metrics" id="metricsAcomp"></div>
 
-    <div class="manual-box">
-      <div class="manual-title">Entrada manual — Clube Vida e Ligações</div>
-      <div class="manual-sub">Preencher 1x por dia. Valores somados aos totais do acompanhamento.</div>
-      <div class="manual-grid" id="manualGrid"></div>
-      <div style="display:flex;align-items:center;margin-top:12px">
-        <button class="btn-save" onclick="salvarManual()">Salvar</button>
-        <span class="saved-tag" id="savedTag">✓ Salvo!</span>
-      </div>
-    </div>
-
     <div class="card">
-      <div class="card-title">Acompanhamento por vendedor</div>
+      <div class="card-title">Acompanhamento acumulado por vendedor</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Atualizado diariamente às 23:30. Para incluir metas, preencha a aba <strong>Metas_Vendedores</strong> na planilha.</div>
       <div class="tscroll"><table class="acomp-t" id="acompTable"></table></div>
-    </div>
-
-    <div class="g2">
-      <div class="card">
-        <div class="card-title">Leads recebidos vs vendas por dia</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="acompChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">GAP para meta por vendedor</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="gapChart"></canvas></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Leads abertos por vendedor (sem motivo de finalização — via CRM)</div>
-      <div class="chart-wrap" style="height:220px"><canvas id="abertosChart"></canvas></div>
     </div>
   </div>
 </div>
@@ -472,42 +437,48 @@ async function carregarCRM(){
 
 async function carregarAcomp(){
   try{
-    const metaUrl=`https://docs.google.com/spreadsheets/d/${ACOMP_ID}/feeds/worksheets/default/public/basic?alt=json`;
-    let abas=[];
+    // Busca GID da aba Acomp_Mensal na planilha HORA A HORA
+    const metaUrl=`https://docs.google.com/spreadsheets/d/${HORA_ID}/feeds/worksheets/default/public/basic?alt=json`;
+    let gidMensal='';
     try{
       const mr=await fetch(metaUrl);
       if(mr.ok){
         const mj=await mr.json();
-        (mj.feed.entry||[]).forEach(e=>{
-          const id=e.id.$t,gm=id.match(/\/([^/]+)$/);
-          if(gm) abas.push({name:e.title.$t,gid:gm[1]});
-        });
+        const aba=(mj.feed.entry||[]).find(e=>e.title.$t==='Acomp_Mensal');
+        if(aba){const gm=aba.id.$t.match(/\/([^/]+)$/);if(gm)gidMensal=gm[1];}
       }
-    }catch(e){}
+    }catch(e2){}
 
-    if(!abas.length) abas=[{name:'CONTROLE DIARIO GERAL',gid:'314913362'}];
-
-    acompRaw={};vendedoresAcomp=[];
-    for(const {name,gid} of abas){
-      if(!name.includes('CONTROLE DIARIO GERAL')) continue;
-      try{
-        const r=await fetch(`https://docs.google.com/spreadsheets/d/${ACOMP_ID}/export?format=csv&gid=${gid}`);
-        if(!r.ok) continue;
-        const rows=parsearCSV(await r.text());
-        if(rows.length<3) continue;
-        const vendedor=name.replace('CONTROLE DIARIO GERAL','').replace('-','').trim()||'GERAL';
-        acompRaw[vendedor]=rows;
-        if(vendedor!=='GERAL') vendedoresAcomp.push(vendedor);
-      }catch(e){console.warn(name,e);}
+    if(!gidMensal){
+      document.getElementById('loadAcomp').style.display='none';
+      document.getElementById('dashAcomp').style.display='block';
+      document.getElementById('metricsAcomp').innerHTML='<div class="metric"><div class="metric-label">Acompanhamento Mensal</div><div class="metric-value" style="font-size:14px;color:var(--muted)">Execute o fechamento diário para gerar os dados.<br>Ou instale o robô de acompanhamento mensal.</div></div>';
+      return;
     }
 
-    const sv=document.getElementById('fAcompVend');
-    sv.innerHTML='<option value="">Todos</option>'+vendedoresAcomp.map(v=>`<option>${v}</option>`).join('');
+    const res=await fetch(`https://docs.google.com/spreadsheets/d/${HORA_ID}/export?format=csv&gid=${gidMensal}`);
+    if(!res.ok){console.warn('Acomp_Mensal HTTP '+res.status);return;}
+    const rows=parsearCSV(await res.text());
+    acompRaw=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!==''));
 
-    document.getElementById('lastUpdAcomp').textContent='Última atualização: '+new Date().toLocaleString('pt-BR');
+    // Popula select de meses
+    const meses=[...new Set(acompRaw.map(r=>(r[0]||'').trim()).filter(Boolean))];
+    const sel=document.getElementById('fAcompMes');
+    const d=new Date();
+    const mesAtual=String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+    if(sel){
+      sel.innerHTML='';
+      meses.forEach(m=>{
+        const opt=document.createElement('option');
+        opt.value=m;opt.textContent=m;
+        if(m===mesAtual)opt.selected=true;
+        sel.appendChild(opt);
+      });
+    }
+
     document.getElementById('loadAcomp').style.display='none';
     document.getElementById('dashAcomp').style.display='block';
-    carregarManual();buildManualGrid();renderAcomp();
+    renderAcomp();
   }catch(e){
     document.getElementById('loadAcomp').innerHTML=`<div class="error-box"><strong>Erro acompanhamento</strong><br><br>${e.message}<br><br><button onclick="carregarAcomp()">Tentar novamente</button></div>`;
   }
@@ -738,67 +709,69 @@ function parsearAba(rows){
 }
 
 function renderAcomp(){
-  const diaIni=parseInt(document.getElementById('fDiaIni').value)||1;
-  const diaFim=parseInt(document.getElementById('fDiaFim').value)||31;
-  const vf=document.getElementById('fAcompVend').value;
-  const nomes=vendedoresAcomp.filter(n=>!vf||n===vf);
+  const mesSel=document.getElementById('fAcompMes')?.value||'';
+  // Filtra dados do mês selecionado — pega última linha de cada vendedor (mais recente)
+  const dadosMes=Array.isArray(acompRaw)?acompRaw.filter(r=>(r[0]||'').trim()===mesSel):[];
+  const mapaVend={};
+  dadosMes.forEach(r=>{const v=(r[1]||'').trim();if(v)mapaVend[v]=r;});
+  const linhas=Object.values(mapaVend);
+  const total=linhas.find(r=>r[1].includes('TOTAL'));
+  const vendedores=linhas.filter(r=>!r[1].includes('TOTAL')).sort((a,b)=>(parseInt(b[3])||0)-(parseInt(a[3])||0));
 
-  let totR=0,totD=0,totV=0,totVi=0,totL=0,totMeta=0;
-  const linhasTab=[];
+  document.getElementById('loadAcomp').style.display='none';
+  document.getElementById('dashAcomp').style.display='block';
 
-  nomes.forEach(nome=>{
-    const {linhas,meta}=parsearAba(acompRaw[nome]);
-    const filtradas=linhas.filter(l=>l.dia>=diaIni&&l.dia<=diaFim&&l.leads>0);
-    const r=filtradas.reduce((a,l)=>({leads:a.leads+l.leads,descartados:a.descartados+l.descartados,vendas:a.vendas+l.vendas,vidas:a.vidas+l.vidas,ligEfetuadas:a.ligEfetuadas+l.ligEfetuadas,ligRecebidas:a.ligRecebidas+l.ligRecebidas}),{leads:0,descartados:0,vendas:0,vidas:0,ligEfetuadas:0,ligRecebidas:0});
-    const m=manualData[nome]||{};
-    r.vidas+=m.vidas||0;r.ligEfetuadas+=m.ligacoes||0;
-    // Meta proporcional ao período de dias
-    const diasTotais=31,diasPeriodo=Math.min(diaFim,31)-diaIni+1;
-    const metaPeriodo=meta>0?Math.round(meta*diasPeriodo/diasTotais):0;
-    totR+=r.leads;totD+=r.descartados;totV+=r.vendas;totVi+=r.vidas;totL+=r.ligEfetuadas;totMeta+=metaPeriodo;
-    linhasTab.push({nome,r,meta:metaPeriodo,gap:r.vendas-metaPeriodo,conv:r.leads>0?(r.vendas/r.leads*100).toFixed(1):0});
-  });
+  if(total){
+    const meta=parseInt(total[2])||0,vidas=parseInt(total[3])||0,leads=parseInt(total[4])||0;
+    const gap=meta-vidas,proj=parseInt(total[11])||0;
+    const ating=meta>0?(vidas/meta*100).toFixed(1)+'%':'0%';
+    const conv=leads>0?(vidas/leads*100).toFixed(1)+'%':'0%';
+    const diasRest=parseInt(total[10])||0;
+    const gbc=gap<=0?'bg-green':gap<10?'bg-amber':'bg-red';
+    const abc=parseFloat(ating)>=100?'bg-green':parseFloat(ating)>=70?'bg-amber':'bg-red';
+    document.getElementById('metricsAcomp').innerHTML=`
+      <div class="metric"><div class="metric-label" style="color:var(--green);font-weight:600">⭐ Vidas Acumuladas</div><div class="metric-value" style="color:var(--green)">${vidas}</div><div class="metric-sub">Meta: ${meta}</div></div>
+      <div class="metric"><div class="metric-label">Atendimentos Acum.</div><div class="metric-value">${leads}</div><div class="metric-sub">Conv: ${conv}</div></div>
+      <div class="metric"><div class="metric-label">GAP do Time</div><div class="metric-value"><span class="mbadge ${gbc}">${gap>=0?'+':''}${gap}</span></div><div class="metric-sub">Meta - Realizado</div></div>
+      <div class="metric"><div class="metric-label">Projeção do Mês</div><div class="metric-value">${proj}</div><div class="metric-sub">${diasRest} dias restantes</div></div>
+      <div class="metric"><div class="metric-label">Atingimento</div><div class="metric-value"><span class="mbadge ${abc}">${ating}</span></div></div>`;
+    document.getElementById('lastUpdAcomp').textContent='Última atualização: '+(total[13]||'');
+  } else {
+    document.getElementById('metricsAcomp').innerHTML='<div class="metric"><div class="metric-label">Sem dados</div><div class="metric-value" style="font-size:14px;color:var(--muted)">Nenhum dado encontrado para este mês.<br>O fechamento diário gera os dados às 23:30.</div></div>';
+  }
 
-  const gapTot=totV-totMeta,convTot=totR>0?(totV/totR*100).toFixed(1):0;
-  const gbc=gapTot>=0?'bg-green':gapTot>-5?'bg-amber':'bg-red';
-  const cbc=convTot>=20?'bg-green':convTot>=10?'bg-amber':'bg-red';
+  const rows=vendedores.map((r,i)=>{
+    const v=r[1]||'',meta=parseInt(r[2])||0,vidas=parseInt(r[3])||0,leads=parseInt(r[4])||0;
+    const desc=parseInt(r[5])||0,gap=meta-vidas,proj=parseInt(r[11])||0;
+    const ating=meta>0?(vidas/meta*100).toFixed(1)+'%':'0%';
+    const conv=leads>0?(vidas/leads*100).toFixed(1)+'%':'0%';
+    const rc=i===0?'rank rank-1':i===1?'rank rank-2':i===2?'rank rank-3':'rank';
+    const gbc=gap<=0?'gap-pos':gap<5?'gap-zero':'gap-neg';
+    const abc=parseFloat(ating)>=100?'color:var(--green)':parseFloat(ating)>=70?'color:var(--amber)':'color:var(--red)';
+    return `<tr><td><span class="${rc}">${i+1}</span></td><td>${v}</td>
+      <td style="text-align:center;font-weight:700;color:var(--green)">${vidas}</td>
+      <td style="text-align:center">${meta}</td>
+      <td style="text-align:center" class="${gbc}">${gap>=0?'+':''}${gap}</td>
+      <td style="text-align:center;${abc}">${ating}</td>
+      <td style="text-align:center">${proj}</td>
+      <td style="text-align:center">${leads}</td>
+      <td style="text-align:center">${conv}</td>
+      <td style="text-align:center;color:var(--red)">${desc}</td></tr>`;
+  }).join('');
 
-  // Leads abertos do CRM (N/A no motivo)
-  const abertosMap={};
-  crmData.filter(isAberto).forEach(r=>{const v=r[COLS.ATENDENTE];if(v) abertosMap[v]=(abertosMap[v]||0)+1;});
-  const totAbertos=Object.values(abertosMap).reduce((a,b)=>a+b,0);
-
-  // Clube Vida — col: Data(0),Vendedor(1),Contratos(2),Inclusoes(3),Vendas(4),Vidas(5)
-  const cvMap={};
-  cvData.forEach(r=>{
-    const vend=(r[1]||'').trim();if(!vend) return;
-    if(!cvMap[vend]) cvMap[vend]={vendas:0,vidas:0};
-    cvMap[vend].vendas+=parseFloat(r[4])||0;
-    cvMap[vend].vidas+=parseFloat(r[5])||0;
-  });
-  const totCVVendas=Object.values(cvMap).reduce((s,v)=>s+v.vendas,0);
-  const totCVVidas=Object.values(cvMap).reduce((s,v)=>s+v.vidas,0);
-
-  document.getElementById('metricsAcomp').innerHTML=`
-    <div class="metric"><div class="metric-label">Leads recebidos</div><div class="metric-value">${totR.toLocaleString('pt-BR')}</div><div class="metric-sub">Dias ${diaIni}–${diaFim}</div></div>
-    <div class="metric"><div class="metric-label">Descartados</div><div class="metric-value">${totD.toLocaleString('pt-BR')}</div><div class="metric-sub">${totR>0?(totD/totR*100).toFixed(1):0}% dos recebidos</div></div>
-    <div class="metric"><div class="metric-label">Vendas (Clube Vida)</div><div class="metric-value">${totCVVendas.toLocaleString('pt-BR')}</div><span class="mbadge ${cbc}">Conv. ${totR>0?(totCVVendas/totR*100).toFixed(1):0}%</span></div>
-    <div class="metric"><div class="metric-label" style="color:var(--green);font-weight:600">⭐ Vidas (norte estrela)</div><div class="metric-value" style="color:var(--green)">${totCVVidas.toLocaleString('pt-BR')}</div><div class="metric-sub">Clube Vida</div></div>
-    <div class="metric"><div class="metric-label">Meta do período</div><div class="metric-value">${totMeta.toLocaleString('pt-BR')}</div><span class="mbadge ${gbc}">GAP: ${gapTot>=0?'+':''}${gapTot}</span></div>
-    <div class="metric"><div class="metric-label">Ligações</div><div class="metric-value">${totL.toLocaleString('pt-BR')}</div><div class="metric-sub">Total do time</div></div>
-    <div class="metric"><div class="metric-label">Leads em aberto</div><div class="metric-value" style="color:var(--amber)">${totAbertos.toLocaleString('pt-BR')}</div><div class="metric-sub">Sem finalização (CRM)</div></div>`;
-
-  // Tabela
-  const trows=linhasTab.map(({nome,r,meta,gap,conv})=>{
-    const gc=gap>=0?'gap-pos':gap<-2?'gap-neg':'gap-zero';
-    const ab=abertosMap[nome]||0;
-    return `<tr><td>${nome}</td><td>${r.leads}</td><td>${r.descartados}</td><td>${r.vendas}</td><td>${meta}</td><td class="${gc}">${gap>=0?'+':''}${gap}</td><td>${conv}%</td><td>${r.vidas}</td><td>${r.ligEfetuadas}</td><td style="color:var(--amber);font-weight:500">${ab}</td></tr>`;
-  });
-  const gtc=gapTot>=0?'gap-pos':gapTot<-2?'gap-neg':'gap-zero';
-  trows.push(`<tr class="total-row"><td>TOTAL TIME</td><td>${totR}</td><td>${totD}</td><td>${totV}</td><td>${totMeta}</td><td class="${gtc}">${gapTot>=0?'+':''}${gapTot}</td><td>${convTot}%</td><td>${totVi}</td><td>${totL}</td><td style="color:var(--amber);font-weight:500">${totAbertos}</td></tr>`);
-  document.getElementById('acompTable').innerHTML=`<thead><tr><th>Vendedor</th><th>Leads Rec.</th><th>Descart.</th><th>Vendas CV</th><th>Vidas CV</th><th>Meta</th><th>GAP</th><th>Conv.</th><th>Ligações</th><th>Abertos</th></tr></thead><tbody>${trows.join('')}</tbody>`;
-
-  renderAcompCharts(nomes,diaIni,diaFim,linhasTab,abertosMap);
+  document.getElementById('acompTable').innerHTML=`
+    <thead><tr>
+      <th>#</th><th>Vendedor</th>
+      <th style="text-align:center">Vidas Acum.</th>
+      <th style="text-align:center">Meta</th>
+      <th style="text-align:center">GAP</th>
+      <th style="text-align:center">Atingimento</th>
+      <th style="text-align:center">Projeção</th>
+      <th style="text-align:center">Atend.</th>
+      <th style="text-align:center">Conv.%</th>
+      <th style="text-align:center">Descart.</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>`;
 }
 
 function renderAcompCharts(nomes,diaIni,diaFim,linhasTab,abertosMap){
