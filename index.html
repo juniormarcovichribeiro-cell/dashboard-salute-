@@ -438,16 +438,7 @@ async function carregarCRM(){
 async function carregarAcomp(){
   try{
     // Busca GID da aba Acomp_Mensal na planilha HORA A HORA
-    const metaUrl=`https://docs.google.com/spreadsheets/d/${HORA_ID}/feeds/worksheets/default/public/basic?alt=json`;
-    let gidMensal='';
-    try{
-      const mr=await fetch(metaUrl);
-      if(mr.ok){
-        const mj=await mr.json();
-        const aba=(mj.feed.entry||[]).find(e=>e.title.$t==='Acomp_Mensal');
-        if(aba){const gm=aba.id.$t.match(/\/([^/]+)$/);if(gm)gidMensal=gm[1];}
-      }
-    }catch(e2){}
+    const gidMensal='1986481054'; // GID fixo da aba Acomp_Mensal
 
     if(!gidMensal){
       document.getElementById('loadAcomp').style.display='none';
